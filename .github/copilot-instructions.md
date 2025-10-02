@@ -1,13 +1,13 @@
 ## Development Practices
 
 - Start with minimal, lean implementations focused on proof-of-concept
+
 - Avoid implementing things from scratch
 - Avoid defensive error handling for hypothetical failures
 - Use print statements and logging sparingly, unless asked
 - Avoid light wrappers and custom classes, unless asked
 - Avoid `if __name__ == "__main__"` patterns in package code
 - Skip unit tests unless explicitly requested
-- if you add tests that are for debugging, store them in a separate directory and remove them before finalizing
 - Follow patterns in CONTRIBUTING.md when present
 - Prefer writing Python if no language specified
 

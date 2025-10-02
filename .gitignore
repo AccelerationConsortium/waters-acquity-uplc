@@ -7,10 +7,17 @@ docs/proprietary/
 documentation/
 waters_docs/
 waters\ documentation/
+waters-documentation/
 */docs/proprietary/
 */waters\ documentation/
 **/*_extracted.txt
 **/*.pdf
+
+# Archived failed attempts
+archive/
+
+# Sample management archived - too many experimental files
+sample-management/
 
 # Python compiled files
 __pycache__/
@@ -202,8 +209,3 @@ proprietary_docs/
 *.doc
 **/*.docx
 **/*.doc
-
-# Sample management - start fresh (ignore all current contents)
-sample-management/*
-!sample-management/waters\ documentation/
-!sample-management/README.md
