@@ -1,13 +1,34 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Reflection;
+using System.IO;
+using System.Collections.Generic;
 
 class SampleSetExtractor 
 {
-    static void Main()
+    // Configuration settings from secrets.ini
+    static Dictionary<string, string> empowerConfig = new Dictionary<string, string>();
+    
+    static void Main(string[] args)
     {
         Console.WriteLine("Waters Empower Sample Set Extractor");
         Console.WriteLine("===================================");
+        
+        // Load configuration from secrets.ini
+        LoadConfiguration();
+        
+        // Check if sample set name was provided as argument
+        string targetSampleSet = "20251002_KC"; // Default
+        if (args.Length > 0)
+        {
+            targetSampleSet = args[0];
+            Console.WriteLine("Target Sample Set: " + targetSampleSet);
+        }
+        else
+        {
+            Console.WriteLine("Usage: SampleSetExtractor.exe [SampleSetName]");
+            Console.WriteLine("Using default: " + targetSampleSet);
+        }
         
         object project = null;
         object instrument = null;
@@ -20,9 +41,14 @@ class SampleSetExtractor
             project = Activator.CreateInstance(projectType);
             Console.WriteLine("✅ Project object created: " + project.GetType().Name);
             
-            // Login to Empower
+            // Login to Empower using credentials from secrets.ini
             Console.WriteLine("Attempting login...");
-            object[] loginParams = { "", "Waters GPC Training", "system", "manager" };
+            object[] loginParams = { 
+                empowerConfig.ContainsKey("database") ? empowerConfig["database"] : "",
+                empowerConfig.ContainsKey("project") ? empowerConfig["project"] : "Waters GPC Training", 
+                empowerConfig.ContainsKey("username") ? empowerConfig["username"] : "system", 
+                empowerConfig.ContainsKey("password") ? empowerConfig["password"] : "manager" 
+            };
             project.GetType().InvokeMember(
                 "Login",
                 BindingFlags.InvokeMethod,
@@ -218,7 +244,7 @@ class SampleSetExtractor
                     }
                     
                     // Try to execute specific sample set method
-                    string targetMethod = "20251002_KC";
+                    string targetMethod = targetSampleSet;
                     Console.WriteLine("\nAttempting to execute sample set: " + targetMethod);
                     
                     bool methodExists = false;
@@ -380,8 +406,59 @@ class SampleSetExtractor
             if (project != null) Marshal.ReleaseComObject(project);
             Console.WriteLine("✅ COM cleanup completed");
         }
-        
-        Console.WriteLine("\nPress any key to exit...");
-        Console.ReadKey();
+    }
+    
+    // Load configuration from secrets.ini file
+    static void LoadConfiguration()
+    {
+        try
+        {
+            string configFile = "secrets.ini";
+            if (File.Exists(configFile))
+            {
+                Console.WriteLine("Loading configuration from " + configFile);
+                string[] lines = File.ReadAllLines(configFile);
+                bool inEmpowerSection = false;
+                
+                foreach (string line in lines)
+                {
+                    string trimmedLine = line.Trim();
+                    
+                    // Skip comments and empty lines
+                    if (trimmedLine.StartsWith("#") || trimmedLine.StartsWith(";") || string.IsNullOrEmpty(trimmedLine))
+                        continue;
+                        
+                    // Check for section headers
+                    if (trimmedLine.StartsWith("[") && trimmedLine.EndsWith("]"))
+                    {
+                        inEmpowerSection = trimmedLine.Equals("[empower]", StringComparison.OrdinalIgnoreCase);
+                        continue;
+                    }
+                    
+                    // Parse key-value pairs in empower section
+                    if (inEmpowerSection && trimmedLine.Contains("="))
+                    {
+                        string[] parts = trimmedLine.Split('=');
+                        if (parts.Length == 2)
+                        {
+                            string key = parts[0].Trim();
+                            string value = parts[1].Trim();
+                            empowerConfig[key] = value;
+                            Console.WriteLine("  " + key + " = " + (key == "password" ? "***" : value));
+                        }
+                    }
+                }
+                Console.WriteLine("✅ Configuration loaded successfully");
+            }
+            else
+            {
+                Console.WriteLine("⚠️  secrets.ini not found, using default credentials");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("❌ Error loading configuration: " + ex.Message);
+            Console.WriteLine("Using default credentials");
+        }
     }
 }

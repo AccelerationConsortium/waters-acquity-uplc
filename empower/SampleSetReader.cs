@@ -1,25 +1,69 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Reflection;
+using System.IO;
+using System.Collections.Generic;
 
 class SampleSetReader 
 {
+    // Configuration settings from secrets.ini
+    static Dictionary<string, string> empowerConfig = new Dictionary<string, string>();
+    
     static void Main(string[] args)
     {
         Console.WriteLine("Waters Empower Sample Set Reader");
         Console.WriteLine("===============================");
         
-        // Check if sample set name was provided as argument
-        string targetSampleSet = "20251002_KC"; // Default
-        if (args.Length > 0)
+        // Load configuration from secrets.ini
+        LoadConfiguration();
+        
+        // Parse command line arguments
+        string targetSampleSet = null;
+        bool listAll = false;
+        bool showHelp = false;
+        
+        for (int i = 0; i < args.Length; i++)
         {
-            targetSampleSet = args[0];
-            Console.WriteLine("Target Sample Set: " + targetSampleSet);
+            switch (args[i].ToLower())
+            {
+                case "--help":
+                case "-h":
+                    showHelp = true;
+                    break;
+                case "--list-all":
+                case "-l":
+                    listAll = true;
+                    break;
+                case "--name":
+                case "-n":
+                    if (i + 1 < args.Length)
+                    {
+                        targetSampleSet = args[++i];
+                    }
+                    break;
+                default:
+                    // If no flag specified, treat as sample set name
+                    if (!args[i].StartsWith("-"))
+                    {
+                        targetSampleSet = args[i];
+                    }
+                    break;
+            }
         }
-        else
+        
+        if (showHelp)
         {
-            Console.WriteLine("Usage: SampleSetReader.exe [SampleSetName]");
-            Console.WriteLine("Using default: " + targetSampleSet);
+            Console.WriteLine("Usage: SampleSetReader.exe [options]");
+            Console.WriteLine("Options:");
+            Console.WriteLine("  --list-all, -l              List all available sample sets");
+            Console.WriteLine("  --name <name>, -n <name>     Read specific sample set by name");
+            Console.WriteLine("  --help, -h                   Show this help message");
+            Console.WriteLine();
+            Console.WriteLine("Examples:");
+            Console.WriteLine("  SampleSetReader.exe --list-all");
+            Console.WriteLine("  SampleSetReader.exe --name \"20251002_KC\"");
+            Console.WriteLine("  SampleSetReader.exe \"20251002_KC\"  (same as above)");
+            return;
         }
         
         object project = null;
@@ -33,9 +77,14 @@ class SampleSetReader
             project = Activator.CreateInstance(projectType);
             Console.WriteLine("✅ Project object created");
             
-            // Login to Empower
+            // Login to Empower using credentials from secrets.ini
             Console.WriteLine("Attempting login...");
-            object[] loginParams = { "", "Waters GPC Training", "system", "manager" };
+            object[] loginParams = { 
+                empowerConfig.ContainsKey("database") ? empowerConfig["database"] : "",
+                empowerConfig.ContainsKey("project") ? empowerConfig["project"] : "Waters GPC Training", 
+                empowerConfig.ContainsKey("username") ? empowerConfig["username"] : "system", 
+                empowerConfig.ContainsKey("password") ? empowerConfig["password"] : "manager" 
+            };
             project.GetType().InvokeMember(
                 "Login",
                 BindingFlags.InvokeMethod,
@@ -51,7 +100,7 @@ class SampleSetReader
             sampleSetMethodObj = Activator.CreateInstance(sampleSetMethodType);
             Console.WriteLine("✅ SampleSetMethod object created");
             
-            // Get all available sample set method names first
+            // Get all available sample set method names
             Console.WriteLine("\nGetting available sample set methods...");
             var allMethodNames = sampleSetMethodObj.GetType().InvokeMember(
                 "SampleSetMethodNames",
@@ -66,7 +115,34 @@ class SampleSetReader
             {
                 Console.WriteLine("✅ Found " + allMethodArray.Length + " total sample set methods");
                 
-                // Look for methods that match our target (including variations)
+                if (listAll)
+                {
+                    // List all sample sets
+                    Console.WriteLine("\n📋 ALL AVAILABLE SAMPLE SETS:");
+                    Console.WriteLine("==============================");
+                    for (int i = 0; i < allMethodArray.Length; i++)
+                    {
+                        Console.WriteLine((i + 1).ToString().PadLeft(3) + ". " + allMethodArray[i]);
+                    }
+                    return;
+                }
+                
+                if (targetSampleSet == null)
+                {
+                    Console.WriteLine("\n⚠️  No sample set specified. Use --list-all to see all available sample sets or --name to specify one.");
+                    Console.WriteLine("First 10 available sample sets:");
+                    for (int i = 0; i < Math.Min(10, allMethodArray.Length); i++)
+                    {
+                        Console.WriteLine("  " + (i + 1) + ". " + allMethodArray[i]);
+                    }
+                    if (allMethodArray.Length > 10)
+                    {
+                        Console.WriteLine("  ... and " + (allMethodArray.Length - 10) + " more. Use --list-all to see them all.");
+                    }
+                    return;
+                }
+                
+                // Look for methods that match our target
                 Console.WriteLine("\nLooking for methods related to '" + targetSampleSet + "':");
                 bool foundExact = false;
                 string[] matchingMethods = new string[allMethodArray.Length];
@@ -80,9 +156,9 @@ class SampleSetReader
                         foundExact = true;
                         matchingMethods[matchCount++] = method;
                     }
-                    else if (method.Contains(targetSampleSet.Replace("_KC", "")) || method.Contains(targetSampleSet))
+                    else if (method.IndexOf(targetSampleSet, StringComparison.OrdinalIgnoreCase) >= 0)
                     {
-                        Console.WriteLine("  🔍 RELATED: " + method);
+                        Console.WriteLine("  🔍 PARTIAL MATCH: " + method);
                         matchingMethods[matchCount++] = method;
                     }
                 }
@@ -90,15 +166,27 @@ class SampleSetReader
                 if (matchCount == 0)
                 {
                     Console.WriteLine("❌ No methods found matching '" + targetSampleSet + "'");
-                    Console.WriteLine("\nAll available methods:");
-                    foreach (string method in allMethodArray)
+                    Console.WriteLine("\nDid you mean one of these? (showing first 10):");
+                    for (int i = 0; i < Math.Min(10, allMethodArray.Length); i++)
                     {
-                        Console.WriteLine("  - " + method);
+                        Console.WriteLine("  - " + allMethodArray[i]);
                     }
+                    Console.WriteLine("\nUse --list-all to see all available sample sets");
                     return;
                 }
                 
-                // Use the exact match if found, otherwise use the first related match
+                // Show all matches if more than one
+                if (matchCount > 1)
+                {
+                    Console.WriteLine("\nFound " + matchCount + " matching sample sets:");
+                    for (int i = 0; i < matchCount; i++)
+                    {
+                        Console.WriteLine("  " + (i + 1) + ". " + matchingMethods[i]);
+                    }
+                    Console.WriteLine("\nReading the first match: " + matchingMethods[0]);
+                }
+                
+                // Use the exact match if found, otherwise use the first match
                 string methodToRead = foundExact ? targetSampleSet : matchingMethods[0];
                 Console.WriteLine("\n📖 READING SAMPLE SET: " + methodToRead);
                 Console.WriteLine("==========================================");
@@ -217,9 +305,6 @@ class SampleSetReader
             if (project != null) Marshal.ReleaseComObject(project);
             Console.WriteLine("✅ COM cleanup completed");
         }
-        
-        Console.WriteLine("\nPress any key to exit...");
-        Console.ReadKey();
     }
     
     // Helper method to read key sample line fields
@@ -264,6 +349,60 @@ class SampleSetReader
         catch
         {
             // Field doesn't exist or can't be read, skip silently
+        }
+    }
+    
+    // Load configuration from secrets.ini file
+    static void LoadConfiguration()
+    {
+        try
+        {
+            string configFile = "secrets.ini";
+            if (File.Exists(configFile))
+            {
+                Console.WriteLine("Loading configuration from " + configFile);
+                string[] lines = File.ReadAllLines(configFile);
+                bool inEmpowerSection = false;
+                
+                foreach (string line in lines)
+                {
+                    string trimmedLine = line.Trim();
+                    
+                    // Skip comments and empty lines
+                    if (trimmedLine.StartsWith("#") || trimmedLine.StartsWith(";") || string.IsNullOrEmpty(trimmedLine))
+                        continue;
+                        
+                    // Check for section headers
+                    if (trimmedLine.StartsWith("[") && trimmedLine.EndsWith("]"))
+                    {
+                        inEmpowerSection = trimmedLine.Equals("[empower]", StringComparison.OrdinalIgnoreCase);
+                        continue;
+                    }
+                    
+                    // Parse key-value pairs in empower section
+                    if (inEmpowerSection && trimmedLine.Contains("="))
+                    {
+                        string[] parts = trimmedLine.Split('=');
+                        if (parts.Length == 2)
+                        {
+                            string key = parts[0].Trim();
+                            string value = parts[1].Trim();
+                            empowerConfig[key] = value;
+                            Console.WriteLine("  " + key + " = " + (key == "password" ? "***" : value));
+                        }
+                    }
+                }
+                Console.WriteLine("✅ Configuration loaded successfully");
+            }
+            else
+            {
+                Console.WriteLine("⚠️  secrets.ini not found, using default credentials");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("❌ Error loading configuration: " + ex.Message);
+            Console.WriteLine("Using default credentials");
         }
     }
 }
