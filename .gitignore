@@ -19,6 +19,11 @@ archive/
 # Sample management archived - too many experimental files
 sample-management/
 
+# Test files and experimental scripts
+test_*.py
+*_test.py
+debug_*.py
+
 # Python compiled files
 __pycache__/
 *.py[cod]

@@ -8,14 +8,17 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 with open("requirements.txt", "r", encoding="utf-8") as fh:
-    requirements = [line.strip() for line in fh if line.strip() and not line.startswith("#")]
+    requirements = [
+        line.strip() for line in fh if line.strip() and not line.startswith("#")
+    ]
 
 setup(
     name="waters-acquity-driver",
     version="1.0.0",
     author="Kelvin Chow",
     author_email="kelvinchow23@users.noreply.github.com",
-    description="Production-ready Python driver for Waters Acquity UPC systems with Automation Portal support",
+    description="Production-ready Python driver for Waters Acquity UPC systems "
+    "with Automation Portal support",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/kelvinchow23/waters-acquity-upc",
