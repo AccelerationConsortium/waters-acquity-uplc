@@ -1,0 +1,124 @@
+# Waters Automation Portal Driver Configuration
+# Based on Waters Automation Portal PC Protocol Specification (715008839)
+
+# Serial communication settings
+serial:
+  port: COM4
+  baudrate: 38400  # Waters Automation Portal specification (715008839)
+  timeout: 5.0
+
+# Network communication settings (TCP/IP alternative)
+network:
+  host: 192.168.1.100  # Default Waters instrument IP
+  port: 502           # Standard Modbus TCP port
+
+# Protocol settings
+protocol:
+  command_terminator: "\r"     # Waters uses only CR (not CRLF)
+  response_terminator: "\r\n"
+  max_retries: 3
+  retry_delay: 1.0            # seconds
+  data_buffer_size: 1024
+
+# Communication modes
+communication:
+  mode_serial: serial
+  mode_tcp: tcp
+
+# Command timeouts (in seconds)
+timeouts:
+  get_status: 5
+  initialize: 120      # Initialization can take up to 2 minutes
+  extract: 60         # Extract operations typically take ~1 minute
+  insert: 60          # Insert operations typically take ~1 minute
+  report_version: 5
+  reset_system: 30
+
+# Portal validation ranges
+validation:
+  tray_positions: [0, 1]                    # Valid tray positions
+  max_extract_distance: 175                 # mm - maximum feeder expansion
+  min_drawer_detect_distance: 70            # mm - minimum distance for drawer detection
+  max_drawer_detect_distance: 80            # mm - maximum distance for drawer detection
+  reference_position_tolerance: 1.0         # degrees - SM angle tolerance
+  tray_release_angle: 10.0                  # degrees - angle for tray decoupling
+
+# Waters Automation Portal Error Codes (from Protocol Specification 715008839)
+error_codes:
+  1: "Command parsing failure"
+  2: "Sequence number is below the expected range"
+  3: "Sequence number is above the expected range"
+  4: "PC command is too long"
+  5: "Maximum size of a command is exceeded"
+  6: "Sample manager communication problem"
+  7: "Sample manager is busy"
+  8: "Sample manager was not in idle state"
+  9: "Both door sensors are active"
+  10: "Door movement problem while opening"
+  11: "Door movement problem while closing"
+  12: "Feeder calibration failure"
+  13: "Feeder movement problem while expanding"
+  14: "Feeder movement problem while retracting"
+  15: "Invalid tray number"
+  16: "Drawer and/or tray detection failure"
+  17: "No drawer and no tray detected at retraction"
+  18: "Door did not move when initializing"
+  19: "Drawer and tray present when start extraction"
+  20: "Drawer present when start extraction"
+  21: "Picked up nothing during extraction"
+  22: "No drawer or tray present at start insertion"
+  23: "Drawer present after insertion"
+  24: "Drawer and tray present after insertion"
+  25: "Feeder motor controller overtemperature"
+  26: "Door motor controller overtemperature"
+  27: "Insert: Already drawer present at SM position"
+  28: "Extract: No drawer present at SM position"
+  29: "SM rotated to an incorrect angle"
+  30: "Timeout on PC command"
+
+# Portal System Modes
+system_modes:
+  UNINIT: "System powered-on or reset"
+  OPERATIONAL: "Successfully initialized, waiting for Extract/Insert"
+  ERROR: "Problem detected during command execution"
+  SERVICE: "Web interface for configuration/calibration"
+  FW-UPGRADE: "Firmware upgrade mode"
+
+# Portal Door Status Values
+door_status:
+  DoorOpened: "Door is fully open"
+  DoorClosed: "Door is fully closed"
+  DoorIntermediate: "Door is in intermediate position"
+  DoorBothSensors: "Both sensors active (physically impossible - fatal error)"
+
+# Portal Feeder Status Values
+feeder_status:
+  FeederFullyInSM: "Feeder fully inserted in sample manager"
+  FeederIntermediate: "Feeder in intermediate position"
+  FeederNotCalibrated: "Feeder calibration required"
+  FeederFullyRetracted: "Feeder fully retracted"
+
+# Portal Drawer/Tray Status Values
+drawer_tray_status:
+  DrawerAndTray: "Drawer with sample plate present"
+  DrawerOnly: "Drawer without sample plate present"
+  NoDrawerNoTray: "No drawer or tray present"
+  TrayWithoutDrawer: "Tray without drawer (physically impossible - fatal error)"
+  Empty: "Position is empty"
+  Unknown: "Status unknown (typically due to error)"
+
+# Portal Move Commands
+move_commands:
+  NoMoveCmd: "No movement command active"
+  Initialize: "System initialization in progress"
+  "Extract(0)": "Extract from tray position 0 (Drawer 2)"
+  "Extract(1)": "Extract from tray position 1 (Drawer 1)"
+  "Insert(0)": "Insert to tray position 0"
+  "Insert(1)": "Insert to tray position 1"
+
+# Portal Move States
+move_states:
+  NoMovement: "No movement in progress"
+  Idle: "System idle and ready"
+  SERVICE-Idle: "Service mode idle"
+  FW_UPGRADE-Idle: "Firmware upgrade mode idle"
