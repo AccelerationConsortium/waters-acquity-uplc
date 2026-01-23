@@ -20,7 +20,7 @@ class SampleSetCreator
         
         // Parse command line arguments
         string newSampleSetName = null;
-        string templateName = "20251002_KC"; // Default template
+        string templateName = empowerConfig.ContainsKey("default_template") ? empowerConfig["default_template"] : "20251002_KC"; // Default template from config
         string injectionVolume = null;
         List<string> sampleNames = new List<string>();
         List<string> vials = new List<string>();
@@ -110,7 +110,7 @@ class SampleSetCreator
             Console.WriteLine("Usage: SampleSetCreator.exe [options] or [SampleSetName] [InjectionVolume]");
             Console.WriteLine("Options:");
             Console.WriteLine("  --name <name>, -n <name>               New sample set name (required)");
-            Console.WriteLine("  --template <name>, -t <name>           Template sample set to copy from (default: 20251002_KC)");
+            Console.WriteLine("  --template <name>, -t <name>           Template sample set to copy from (default: " + (empowerConfig.ContainsKey("default_template") ? empowerConfig["default_template"] : "20251002_KC") + ")");
             Console.WriteLine("  --injection-volume <vol>, -v <vol>     Injection volume in µL");
             Console.WriteLine("  --sample-names <names>, -s <names>     Comma-separated sample names (e.g., \"MN11,MN12,MN13\")");
             Console.WriteLine("  --vials <positions>, -p <positions>    Comma-separated vial positions (e.g., \"1:A,1,1:A,2,1:A,3\")");
@@ -137,16 +137,17 @@ class SampleSetCreator
         // Fallback to legacy default if no name provided
         if (newSampleSetName == null)
         {
-            newSampleSetName = "20251003_KC_Test";
-            Console.WriteLine("No sample set name specified, using default: " + newSampleSetName);
+            Console.WriteLine("❌ Error: Sample set name is required. Use --name or provide as first argument.");
+            Console.WriteLine("Use --help for usage information.");
+            return;
         }
         
         Console.WriteLine("Configuration:");
         Console.WriteLine("  New Sample Set: " + newSampleSetName);
         Console.WriteLine("  Template: " + templateName);
         if (injectionVolume != null) Console.WriteLine("  Injection Volume: " + injectionVolume + " µL");
-        if (sampleNames.Count > 0) Console.WriteLine("  Sample Names: " + string.Join(", ", sampleNames));
-        if (vials.Count > 0) Console.WriteLine("  Vial Positions: " + string.Join(", ", vials));
+        if (sampleNames.Count > 0) Console.WriteLine("  Sample Names: " + string.Join(", ", sampleNames.ToArray()));
+        if (vials.Count > 0) Console.WriteLine("  Vial Positions: " + string.Join(", ", vials.ToArray()));
         if (runtime != null) Console.WriteLine("  Runtime: " + runtime + " min");
         if (sampleWeight != null) Console.WriteLine("  Sample Weight: " + sampleWeight);
         if (dilution != null) Console.WriteLine("  Dilution: " + dilution);
@@ -330,12 +331,21 @@ class SampleSetCreator
                         Console.WriteLine("Sample lines: " + Math.Min(lineCount, maxLines));
                         
                         if (injectionVolume != null) Console.WriteLine("Injection Volume: " + injectionVolume + " µL");
-                        if (sampleNames.Count > 0) Console.WriteLine("Sample Names: " + string.Join(", ", sampleNames.Take(Math.Min(lineCount, maxLines))));
-                        if (vials.Count > 0) Console.WriteLine("Vial Positions: " + string.Join(", ", vials.Take(Math.Min(lineCount, maxLines))));
+                        if (sampleNames.Count > 0) Console.WriteLine("Sample Names: " + string.Join(", ", sampleNames.Take(Math.Min(lineCount, maxLines)).ToArray()));
+                        if (vials.Count > 0) Console.WriteLine("Vial Positions: " + string.Join(", ", vials.Take(Math.Min(lineCount, maxLines)).ToArray()));
                     }
                     catch (Exception storeEx)
                     {
                         Console.WriteLine("❌ Error storing sample set: " + storeEx.Message);
+                        if (storeEx.InnerException != null)
+                        {
+                            Console.WriteLine("Inner exception: " + storeEx.InnerException.Message);
+                            if (storeEx.InnerException.InnerException != null)
+                            {
+                                Console.WriteLine("Inner inner exception: " + storeEx.InnerException.InnerException.Message);
+                            }
+                        }
+                        Console.WriteLine("Full stack trace: " + storeEx.StackTrace);
                         Console.WriteLine("Sample set may exist in memory but not saved to database");
                     }
                 }
@@ -348,6 +358,14 @@ class SampleSetCreator
             catch (Exception createEx)
             {
                 Console.WriteLine("❌ Error creating sample set: " + createEx.Message);
+                if (createEx.InnerException != null)
+                {
+                    Console.WriteLine("Inner exception: " + createEx.InnerException.Message);
+                    if (createEx.InnerException.InnerException != null)
+                    {
+                        Console.WriteLine("Inner inner exception: " + createEx.InnerException.InnerException.Message);
+                    }
+                }
                 Console.WriteLine("Stack trace: " + createEx.StackTrace);
             }
             

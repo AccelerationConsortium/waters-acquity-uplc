@@ -306,7 +306,7 @@ class SampleSetReader
             Console.WriteLine("✅ COM cleanup completed");
         }
     }
-    
+
     // Helper method to read key sample line fields
     static void ReadSampleLineFields(object sampleLine)
     {

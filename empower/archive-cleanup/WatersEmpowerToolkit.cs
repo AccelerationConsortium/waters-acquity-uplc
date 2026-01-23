@@ -70,7 +70,7 @@ namespace WatersEmpowerToolkit
         /// </summary>
         public bool Login()
         {
-            return LoginInternal("", "Waters GPC Training", "system", "manager");
+            return LoginInternal("", "Startup_E_Arc_HPLC_2998", "system", "manager");
         }
 
         private bool LoginInternal(string database, string project, string username, string password)
@@ -1150,7 +1150,7 @@ namespace WatersEmpowerToolkit
 
                 // Login to project
                 string database = _config.ContainsKey("database") ? _config["database"] : "";
-                string project = _config.ContainsKey("project") ? _config["project"] : "Waters GPC Training";
+                string project = _config.ContainsKey("project") ? _config["project"] : "Startup_E_Arc_HPLC_2998";
                 string username = _config.ContainsKey("username") ? _config["username"] : "system";
                 string password = _config.ContainsKey("password") ? _config["password"] : "manager";
 
@@ -1345,9 +1345,12 @@ namespace WatersEmpowerToolkit
             config["username"] = "system";
             config["password"] = "manager";
             config["database"] = "";
-            config["project"] = "Waters GPC Training";
+            config["project"] = "Startup_E_Arc_HPLC_2998";
             config["system"] = "Arc HPLC";
             config["node"] = "Waters-h4q6k34";
+            config["default_template"] = "20251002_KC";
+            config["default_sample_set"] = "20251002_KC";
+            config["default_fallback_name"] = "20251003_KC_Test";
 
             if (!File.Exists(configFile))
                 return config;

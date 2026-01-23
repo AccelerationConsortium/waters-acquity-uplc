@@ -17,17 +17,25 @@ class SampleSetExtractor
         // Load configuration from secrets.ini
         LoadConfiguration();
         
+        // Check for status-only mode
+        bool statusOnly = args.Length > 0 && args[0].Equals("--status-only", StringComparison.OrdinalIgnoreCase);
+        
         // Check if sample set name was provided as argument
-        string targetSampleSet = "20251002_KC"; // Default
-        if (args.Length > 0)
+        string targetSampleSet = null;
+        if (statusOnly)
+        {
+            Console.WriteLine("Status check mode");
+        }
+        else if (args.Length > 0)
         {
             targetSampleSet = args[0];
             Console.WriteLine("Target Sample Set: " + targetSampleSet);
         }
         else
         {
-            Console.WriteLine("Usage: SampleSetExtractor.exe [SampleSetName]");
-            Console.WriteLine("Using default: " + targetSampleSet);
+            Console.WriteLine("❌ Error: Sample set name is required as first argument.");
+            Console.WriteLine("Usage: SampleSetExtractor.exe [SampleSetName] or SampleSetExtractor.exe --status-only");
+            return;
         }
         
         object project = null;
@@ -118,7 +126,9 @@ class SampleSetExtractor
             
             // Connect to instrument
             Console.WriteLine("\nConnecting to instrument...");
-            object[] connectParams = { "Waters-h4q6k34", "Arc HPLC" };
+            string nodeName = empowerConfig.ContainsKey("node") ? empowerConfig["node"] : "Waters-h4q6k34";
+            string systemName = empowerConfig.ContainsKey("system") ? empowerConfig["system"] : "Arc HPLC";
+            object[] connectParams = { nodeName, systemName };
             instrument.GetType().InvokeMember(
                 "Connect",
                 BindingFlags.InvokeMethod,
@@ -164,8 +174,66 @@ class SampleSetExtractor
                 Console.WriteLine("⚠ Connection check error: " + connEx.Message);
             }
             
-            // Get sample set methods - only try the methods that work
-            Console.WriteLine("\nGetting sample set methods...");
+            // Get sample set methods - only when actually executing
+            if (statusOnly)
+            {
+                // For status-only mode, skip sample set enumeration and go directly to status check
+                Console.WriteLine("\n🔍 CHECKING INSTRUMENT STATUS...");
+                Console.WriteLine("================================");
+                
+                try
+                {
+                    var currentStatus = instrument.GetType().InvokeMember(
+                        "Status",
+                        BindingFlags.GetProperty,
+                        null,
+                        instrument,
+                        null
+                    );
+                    
+                    if (currentStatus != null)
+                    {
+                        var currentStateDesc = currentStatus.GetType().InvokeMember("SystemStateDescription", BindingFlags.GetProperty, null, currentStatus, null);
+                        var currentVial = currentStatus.GetType().InvokeMember("Vial", BindingFlags.GetProperty, null, currentStatus, null);
+                        var currentSampleSet = currentStatus.GetType().InvokeMember("SampleSetMethodName", BindingFlags.GetProperty, null, currentStatus, null);
+                        
+                        Console.WriteLine("Current State: " + currentStateDesc.ToString());
+                        Console.WriteLine("Current Vial: " + currentVial.ToString());
+                        Console.WriteLine("Active Sample Set: " + currentSampleSet.ToString());
+                        
+                        string state = currentStateDesc.ToString();
+                        string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                        Console.WriteLine("Timestamp: " + timestamp);
+                        
+                        if (state.Contains("Idle") || state.Contains("Successfully connected"))
+                        {
+                            Console.WriteLine("STATUS_JSON:{\"status\":\"idle\",\"ready\":true,\"state\":\"" + state + "\",\"timestamp\":\"" + timestamp + "\"}");
+                            Environment.Exit(0);
+                        }
+                        else if (state.Contains("Sample Set") && !state.Contains("Idle"))
+                        {
+                            Console.WriteLine("STATUS_JSON:{\"status\":\"busy\",\"ready\":false,\"state\":\"" + state + "\",\"timestamp\":\"" + timestamp + "\"}");
+                            Environment.Exit(1);
+                        }
+                        else
+                        {
+                            Console.WriteLine("STATUS_JSON:{\"status\":\"unknown\",\"ready\":false,\"state\":\"" + state + "\",\"timestamp\":\"" + timestamp + "\"}");
+                            Environment.Exit(2);
+                        }
+                    }
+                }
+                catch (Exception statusEx)
+                {
+                    string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                    Console.WriteLine("⚠ Could not check current status: " + statusEx.Message);
+                    Console.WriteLine("STATUS_JSON:{\"status\":\"error\",\"ready\":false,\"error\":\"" + statusEx.Message + "\",\"timestamp\":\"" + timestamp + "\"}");
+                    Environment.Exit(3);
+                }
+            }
+            else
+            {
+                // Normal execution mode - get sample sets and execute
+                Console.WriteLine("\nGetting sample set methods...");
             
             // Try using SampleSetMethod object (this is the one that works)
             Console.WriteLine("Getting sample set method names...");
@@ -186,11 +254,7 @@ class SampleSetExtractor
                 string[] methodArray = methodNames as string[];
                 if (methodArray != null)
                 {
-                    Console.WriteLine("✅ Found " + methodArray.Length + " sample set method names:");
-                    foreach (string method in methodArray)
-                    {
-                        Console.WriteLine("  - " + method);
-                    }
+                    Console.WriteLine("✅ Found " + methodArray.Length + " sample set method names");
                     
                     // Check current instrument status BEFORE attempting execution
                     Console.WriteLine("\n🔍 CHECKING CURRENT INSTRUMENT STATUS...");
@@ -216,8 +280,9 @@ class SampleSetExtractor
                             Console.WriteLine("Current Vial: " + currentVial.ToString());
                             Console.WriteLine("Active Sample Set: " + currentSampleSet.ToString());
                             
-                            // Check if instrument is busy
                             string state = currentStateDesc.ToString();
+                            
+                            // Check if instrument is busy
                             if (state.Contains("Sample Set") && (state.Contains("Running") || state.Contains("Waiting") || state.Contains("Injection")))
                             {
                                 Console.WriteLine("⚠ INSTRUMENT IS CURRENTLY BUSY!");
@@ -276,6 +341,8 @@ class SampleSetExtractor
                                 new object[] { targetMethod, targetMethod + "_executed" }
                             );
                             Console.WriteLine("🎉 Run() method succeeded! Sample set execution started!");
+                            string executionStartTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                            Console.WriteLine("Execution Start Time: " + executionStartTime);
                             
                             // Monitor execution status using proper InstrumentStatus (like official example)
                             Console.WriteLine("\n🔍 MONITORING EXECUTION STATUS...");
@@ -284,6 +351,8 @@ class SampleSetExtractor
                             for (int i = 0; i < 5; i++)
                             {
                                 Console.WriteLine("\n--- Execution Check #" + (i + 1) + " ---");
+                                string checkTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                                Console.WriteLine("Check Time: " + checkTime);
                                 
                                 try
                                 {
@@ -390,6 +459,8 @@ class SampleSetExtractor
             {
                 Console.WriteLine("⚠ SampleSetMethod object error: " + ex.Message);
             }
+            
+            } // End of else block for normal execution mode
             
             Console.WriteLine("\n🎉 Sample set extraction completed successfully!");
             
