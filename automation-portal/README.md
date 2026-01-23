@@ -17,7 +17,7 @@ The Waters Automation Portal Driver enables programmatic control of sample trans
    ```bash
    pip install -r requirements.txt
    ```
-3. **Ensure hardware connection**: Connect Waters Automation Portal via RS232 to COM4 (or change DEFAULT_PORT in config.py)
+3. **Ensure hardware connection**: Connect Waters Automation Portal via RS232 to COM4 (or change port in config.yaml)
 
 ## Quick Start
 
@@ -28,14 +28,22 @@ For easy operation, use the interactive command-line menu:
 python automation_menu.py
 ```
 
-This provides a user-friendly interface with guided operations:
-1. Connect to Automation Portal
-2. Check system status
-3. Initialize system (if needed)
-4. Extract/Insert samples
-5. Monitor operations
+This provides a user-friendly interface with guided operations and status monitoring.
 
-### Programmatic Usage
+### Usage Examples
+For programmatic examples and API demonstrations:
+
+```bash
+python usage_examples.py --help
+```
+
+Available commands:
+- `python usage_examples.py status` - Check system status
+- `python usage_examples.py extract 1` - Extract from tray 1
+- `python usage_examples.py insert 2` - Insert to tray 2
+- `python usage_examples.py workflow` - Complete sample transfer workflow
+
+### Basic Programmatic Usage
 
 ```python
 from automation_portal_driver import AutomationPortalDriver
@@ -43,23 +51,30 @@ from automation_portal_driver import AutomationPortalDriver
 # Create and connect
 driver = AutomationPortalDriver()
 if driver.connect():
-    # Initialize system (required after reset/error)
-    driver.initialize()
-    
-    # Check status
+    # Check status and initialize if needed
     status = driver.get_status()
-    print(f"System: {status['system_state']}, Door: {status['door_status']}")
+    if status['system_state'] != 'OPERATIONAL':
+        driver.initialize()
     
-    # Extract sample from position 1 to loading station
-    if driver.extract_drawer(1):
-        print("Sample extracted successfully")
-    
-    # Insert sample from loading station to position 0
-    if driver.insert_drawer(0):
-        print("Sample inserted successfully")
+    # Sample operations
+    driver.extract_drawer(1)  # Extract from tray 1
+    driver.insert_drawer(1)   # Insert back to tray 1
     
     driver.disconnect()
 ```
+
+## Configuration
+
+Settings are configured in `config.yaml`:
+
+```yaml
+serial:
+  port: 'COM4'
+  baudrate: 38400
+  timeout: 5.0
+```
+
+For detailed configuration options, see `config.yaml`.
 
 ## System States & Operations
 
@@ -67,32 +82,12 @@ if driver.connect():
 - **UNINIT**: System needs initialization
 - **OPERATIONAL**: Ready for sample operations  
 - **ERROR**: Problem detected, requires initialization
-- **SERVICE**: Configuration mode (use web interface)
-
-### Required Workflow
-1. **Connect** to automation portal
-2. **Initialize** system (if not OPERATIONAL)
-3. **Verify** door is closed and system ready
-4. **Perform** sample transfer operations
 
 ### Sample Positions
-- **Position 0**: Drawer 2 (instrument position)
-- **Position 1**: Drawer 1 (instrument position)
-- **Loading Station**: External position for manual sample placement
+- **Position 1**: Tray 1 (user position 1)
+- **Position 0**: Tray 2 (user position 2)
 
-## Configuration
-
-### Hardware Settings (config.py)
-```python
-DEFAULT_PORT = 'COM4'              # Serial port
-DEFAULT_BAUDRATE = 38400           # Communication speed
-DEFAULT_TIMEOUT = 5.0              # Command timeout
-```
-
-### Communication Protocol
-- **Serial**: RS232, 8N1, no flow control
-- **Commands**: ASCII with CR terminator
-- **Responses**: Multi-line status with error codes
+Note: User positions 1,2 map to driver positions 1,0 respectively.
 
 ## Error Handling
 
@@ -100,109 +95,21 @@ DEFAULT_TIMEOUT = 5.0              # Command timeout
 - **15**: Invalid tray number
 - **16**: Drawer/tray detection failure  
 - **28**: No drawer present at sample manager position
-- **27**: Drawer already present at position
 
 ### Recovery Steps
 1. Check system status: `driver.get_status()`
 2. Initialize if needed: `driver.initialize()`
-3. Verify door is closed
-4. Retry operation
+3. Retry operation
 
-### Error State Recovery
-```python
-# Check if system is in error state
-status = driver.get_status()
-if status['system_state'] == 'ERROR':
-    print("System in error state, initializing...")
-    driver.initialize()
-```
-
-## API Reference
-
-### AutomationPortalDriver Class
-
-#### Connection Methods
-- `connect()` → bool: Connect to automation portal
-- `disconnect()`: Close connection
-- `is_connected` → bool: Check connection status
-
-#### System Operations  
-- `initialize()` → bool: Initialize system to OPERATIONAL state
-- `get_status()` → dict: Get current system status
-- `report_version()` → str: Get firmware version
-
-#### Sample Transfer
-- `extract_drawer(position: int)` → bool: Extract sample from position (0 or 1)
-- `insert_drawer(position: int)` → bool: Insert sample to position (0 or 1)
-
-#### Status Information
-```python
-status = driver.get_status()
-# Returns:
-{
-    'system_state': 'OPERATIONAL',      # System mode
-    'door_status': 'DoorClosed',        # Door position  
-    'drawer_tray_status': 'NoDrawerNoTray',  # Sample presence
-    'mode': 'NoMovementCmd',            # Current operation
-    'status': 'Idle'                    # Movement state
-}
-```
-
-## Hardware Requirements
-
-- **Waters Automation Portal** with sample manager
-- **RS232 connection** to Windows PC (COM4)
-- **Python 3.7+** with pyserial
-- **Windows operating system**
-
-## Safety Considerations
-
-- **Always initialize** system after reset or error
-- **Verify door is closed** before operations
-- **Check system status** before sample transfers
-- **Handle errors gracefully** with proper recovery
-
-## Troubleshooting
-
-### Connection Issues
-```bash
-# Check if COM4 is available
-python -c "import serial; print(serial.Serial('COM4', 38400))"
-```
-
-### System Not Responding
-1. Check physical connections
-2. Verify COM port in Device Manager
-3. Restart automation portal hardware
-4. Re-run initialization
-
-### Sample Transfer Failures
-1. Verify correct tray positions (0 or 1)  
-2. Check that samples are properly loaded
-3. Ensure door is fully closed
-4. Initialize system if in error state
-
-## Files Structure
+## Files
 
 ```
 automation-portal/
-├── automation_menu.py              # Interactive command-line interface
+├── automation_menu.py              # Interactive CLI interface
 ├── automation_portal_driver.py     # Core driver implementation  
-├── config.py                       # Configuration settings
+├── usage_examples.py               # API usage examples and CLI
+├── config.py                       # YAML configuration loader
+├── config.yaml                     # Configuration file
 ├── requirements.txt                # Python dependencies
-├── setup.py                        # Package installation
-├── README.md                       # This documentation
-└── docs/                          # Additional documentation
+└── README.md                       # This documentation
 ```
-
-## Contributing
-
-When modifying the driver:
-1. Test with actual hardware before committing
-2. Update configuration in `config.py` as needed
-3. Add error handling for new operations
-4. Update this README for new features
-
-## License
-
-See LICENSE file for details.
