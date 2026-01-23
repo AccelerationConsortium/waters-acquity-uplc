@@ -39,7 +39,7 @@ DEFAULT_INJECTION_VOLUME = 5.0  # μL
 # Waters Acquity specific modules
 MODULES = {
     'BSM': 'Binary Solvent Manager',
-    'SM': 'Solvent Manager', 
+    'SM': 'Solvent Manager',
     'TUV': 'Tunable UV Detector',
     'FLR': 'Fluorescence Detector',
     'ELS': 'Evaporative Light Scattering Detector',
@@ -69,7 +69,7 @@ METHOD_EXTENSIONS = ['.met', '.method', '.ezx']
 # Waters instrument status codes
 STATUS_CODES = {
     0: 'Ready',
-    1: 'Running', 
+    1: 'Running',
     2: 'Error',
     3: 'Standby',
     4: 'Maintenance',
@@ -95,7 +95,7 @@ LOG_FILE = 'waters_acquity.log'
 PORTAL_ERROR_CODES = {
     1: "Command parsing failure",
     2: "Sequence number is below the expected range",
-    3: "Sequence number is above the expected range", 
+    3: "Sequence number is above the expected range",
     4: "PC command is too long",
     5: "Maximum size of a command is exceeded",
     6: "Sample manager communication problem",
@@ -112,7 +112,7 @@ PORTAL_ERROR_CODES = {
     17: "No drawer and no tray detected at retraction",
     18: "Door did not move when initializing",
     19: "Drawer and tray present when start extraction",
-    20: "Drawer present when start extraction", 
+    20: "Drawer present when start extraction",
     21: "Picked up nothing during extraction",
     22: "No drawer or tray present at start insertion",
     23: "Drawer present after insertion",
@@ -142,7 +142,7 @@ PORTAL_DOOR_STATUS = {
     'DoorBothSensors': 'Both sensors active (physically impossible - fatal error)'
 }
 
-# Portal Feeder Status Values  
+# Portal Feeder Status Values
 PORTAL_FEEDER_STATUS = {
     'FeederFullyInSM': 'Feeder fully inserted in sample manager',
     'FeederIntermediate': 'Feeder in intermediate position',
@@ -165,7 +165,7 @@ PORTAL_MOVE_COMMANDS = {
     'NoMoveCmd': 'No movement command active',
     'Initialize': 'System initialization in progress',
     'Extract(0)': 'Extract from tray position 0 (Drawer 2)',
-    'Extract(1)': 'Extract from tray position 1 (Drawer 1)', 
+    'Extract(1)': 'Extract from tray position 1 (Drawer 1)',
     'Insert(0)': 'Insert to tray position 0',
     'Insert(1)': 'Insert to tray position 1'
 }

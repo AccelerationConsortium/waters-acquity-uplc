@@ -17,7 +17,7 @@ The Waters Automation Portal Driver enables programmatic control of sample trans
    ```bash
    pip install -r requirements.txt
    ```
-3. **Ensure hardware connection**: Connect Waters Automation Portal via RS232 to COM4
+3. **Ensure hardware connection**: Connect Waters Automation Portal via RS232 to COM4 (or change DEFAULT_PORT in config.py)
 
 ## Quick Start
 
