@@ -58,6 +58,9 @@ COMMAND_TIMEOUT = 10.0  # seconds
 DATA_TIMEOUT = 30.0  # seconds
 STATUS_TIMEOUT = 5.0  # seconds
 
+# Portal operation settings
+STABILIZATION_DELAY = 5.0  # seconds - delay after reaching Idle state before next operation
+
 # Data collection settings
 DEFAULT_SAMPLING_RATE = 10  # Hz
 MAX_DATA_POINTS = 100000
@@ -164,10 +167,10 @@ PORTAL_DRAWER_TRAY_STATUS = {
 PORTAL_MOVE_COMMANDS = {
     'NoMoveCmd': 'No movement command active',
     'Initialize': 'System initialization in progress',
-    'Extract(0)': 'Extract from tray position 0 (Drawer 2)',
-    'Extract(1)': 'Extract from tray position 1 (Drawer 1)',
-    'Insert(0)': 'Insert to tray position 0',
-    'Insert(1)': 'Insert to tray position 1'
+    'Extract(0)': 'Extract from tray position 2 (Waters internal: 0)',
+    'Extract(1)': 'Extract from tray position 1 (Waters internal: 1)', 
+    'Insert(0)': 'Insert to tray position 2 (Waters internal: 0)',
+    'Insert(1)': 'Insert to tray position 1 (Waters internal: 1)'
 }
 
 # Portal Move States
@@ -208,7 +211,7 @@ PORTAL_TIMEOUTS = {
 
 # Portal Validation Ranges
 PORTAL_VALIDATION = {
-    'TRAY_POSITIONS': [0, 1],  # Valid tray positions
+    'TRAY_POSITIONS': [1, 2],  # Valid tray positions (user interface)
     'MAX_EXTRACT_DISTANCE': 175,  # mm - maximum feeder expansion
     'MIN_DRAWER_DETECT_DISTANCE': 70,  # mm - minimum distance for drawer detection
     'MAX_DRAWER_DETECT_DISTANCE': 80,  # mm - maximum distance for drawer detection
