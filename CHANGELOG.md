@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-01-30
+### MULTI-EXPERIMENT REFACTORING
+- **✅ DECOUPLED EXPERIMENT STATE**: Refactored `GPCAutomation` class to support multiple experiments by removing experiment-specific state from `__init__`
+- **✅ STATELESS METHODS**: Methods now return experiment metadata (experiment_id, timestamp, results_folder) instead of storing as instance variables
+- **✅ ADMIN PERSISTENCE**: Admin connection now managed separately from individual experiments via `initialize_admin()` and `cleanup_admin()`
+- **✅ EXPERIMENT LIFECYCLE**: New methods `prepare_experiment_for_collection()`, `close_experiment()`, and `create_results_folder()` for per-experiment management
+- **✅ MULTI-EXPERIMENT SUPPORT**: Added `run_multiple_experiments()` method demonstrating how to run several experiments sequentially
+- **✅ BACKWARDS COMPATIBILITY**: Updated `run_complete_workflow()` to work with new architecture while maintaining same interface
+- **✅ RUNTIME STATE MANAGEMENT**: Admin stores runtime state, methods return data structures for external orchestration
+
+### ASTRA Integration - Class-Based Automation
+- **✅ CLASS-BASED WORKFLOW**: Created `GPCAutomation` class in `gpc_automation_class.py` for object-oriented ASTRA control
+- **✅ PHASE SEPARATION**: Split workflow into distinct phases: `prepare_for_collection()`, `wait_for_injection_signal()`, `collect_and_process_data()`
+- **✅ CONFIGURABLE PARAMETERS**: Constructor accepts `astra_method_path` and `base_results_dir` as main configurable parameters
+- **✅ EXTERNAL INTEGRATION**: Designed for integration with HPLC/Empower systems via separated injection waiting phase
+- **✅ BACKWARDS COMPATIBILITY**: Includes `run_complete_workflow()` method that maintains original script behavior
+- **✅ MODULAR CLEANUP**: Separate `cleanup()` method for integration with multi-system orchestrator
+- **✅ DIRECTORY CLEANUP**: Removed 16 development/test files from astra folder, keeping only essential production files
+
+### File Organization
+- **NEW**: `astra/gpc_automation_class.py` - Object-oriented automation interface
+- **REMOVED**: Development test files, outdated documentation, alternative versions
+- **RETAINED**: `enhanced_gpc_automation.py` (original script), `astra_admin.py`, `sdk_helper.py`, `extract_molecular_weights.py`
+
 ## [Unreleased] - 2026-01-29
 ### Automation Portal Workflow Integration
 - **✅ INTEGRATED STATUS CHECKING**: Added `_check_ready()` and `_wait_for_ready()` methods directly to `AutomationPortalDriver` class
