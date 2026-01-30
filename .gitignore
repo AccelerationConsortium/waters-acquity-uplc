@@ -204,6 +204,15 @@ test_data/
 sample_data/
 calibration_data/
 
+# Astra results and output files
+astra/results/
+**/results/
+*.csv
+*.aex
+*.afe8
+*.xml
+gpc_run_*/
+
 # Waters proprietary files
 waters_proprietary/
 proprietary_docs/

@@ -106,13 +106,13 @@ class AutomationPortalMenu:
             return
 
         print("\nAvailable positions:")
-        print("  0 - Position 0 (Drawer 2)")
-        print("  1 - Position 1 (Drawer 1)")
+        print("  1 - Position 1 (Tray 1)")
+        print("  2 - Position 2 (Tray 2)")
 
         try:
-            pos = input("Enter position (0 or 1): ").strip()
-            if pos not in ['0', '1']:
-                print("❌ Invalid position. Must be 0 or 1.")
+            pos = input("Enter position (1 or 2): ").strip()
+            if pos not in ['1', '2']:
+                print("❌ Invalid position. Must be 1 or 2.")
                 return
 
             print(f"🔄 Extracting sample from position {pos}...")
@@ -137,13 +137,13 @@ class AutomationPortalMenu:
             return
 
         print("\nAvailable positions:")
-        print("  0 - Position 0 (Drawer 2)")
-        print("  1 - Position 1 (Drawer 1)")
+        print("  1 - Position 1 (Tray 1)")
+        print("  2 - Position 2 (Tray 2)")
 
         try:
-            pos = input("Enter position (0 or 1): ").strip()
-            if pos not in ['0', '1']:
-                print("❌ Invalid position. Must be 0 or 1.")
+            pos = input("Enter position (1 or 2): ").strip()
+            if pos not in ['1', '2']:
+                print("❌ Invalid position. Must be 1 or 2.")
                 return
 
             print(f"🔄 Inserting sample to position {pos}...")

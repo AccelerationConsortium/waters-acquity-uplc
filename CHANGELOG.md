@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-01-29
+### Automation Portal Workflow Integration
+- **✅ INTEGRATED STATUS CHECKING**: Added `_check_ready()` and `_wait_for_ready()` methods directly to `AutomationPortalDriver` class
+- **✅ AUTOMATED READINESS**: Modified `extract_drawer()` and `insert_drawer()` to automatically check system status before operations
+- **✅ SIMPLIFIED WORKFLOW**: Updated `automation_portal_workflow.py` to use simple one-liner commands (connect, insert, extract)
+- **✅ ENHANCED LOGGING**: Improved logging messages for better operation tracking
+- **✅ STABILIZATION DELAY**: Added 5-second delay after reaching "Idle" state to ensure system stabilization before next operation
+- **✅ POSITION RENUMBERING**: Changed position numbering from 0/1 to 1/2 (Position 1=Tray 1, Position 2=Tray 2)
+- **✅ CONSISTENT TERMINOLOGY**: Updated all references from "drawer" to "tray" for consistency
+- **✅ TIMEOUT HANDLING**: Implemented 120-second timeout with 2-second polling intervals for operations
+- **✅ OPERATIONAL STATE**: Ensures system is in OPERATIONAL state with Idle status before any movement commands
+
 ## [Unreleased] - 2026-01-15
 ### Code Quality Improvements
 - **✅ FLAKE8 CLEANUP**: Fixed Python code style issues across automation-portal and empower modules

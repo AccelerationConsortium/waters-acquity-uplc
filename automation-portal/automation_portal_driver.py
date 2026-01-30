@@ -3,7 +3,7 @@ Waters Automation Portal Driver - Sample Transfer Only
 
 This module provides a Python interface for controlling the Waters Automation Portal
 for sample transfer operations only. The Automation Portal provides access to sample
-drawer/tray slots for automated sample handling.
+tray slots for automated sample handling.
 
 Based on Waters Automation Portal PC Protocol Specification (715008839).
 """
@@ -73,9 +73,7 @@ class AutomationPortalDriver:
         self.logger = logging.getLogger(__name__)
         if not self.logger.handlers:
             handler = logging.StreamHandler()
-            formatter = logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            )
+            formatter = logging.Formatter("%(message)s")
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
             self.logger.setLevel(logging.DEBUG)
@@ -396,108 +394,100 @@ class AutomationPortalDriver:
 
     def extract_drawer(self, tray_position: int) -> bool:
         """
-        Extract a drawer from the specified sample manager tray position.
+        Extract a tray from the specified sample manager tray position.
 
         Args:
-            tray_position: Tray position (0 or 1)
+            tray_position: Tray position (1 or 2)
 
         Returns:
             True if extraction successful, False otherwise
         """
-        if tray_position not in [0, 1]:
-            raise ValueError("Tray position must be 0 or 1")
+        if tray_position not in [1, 2]:
+            raise ValueError("Tray position must be 1 or 2")
+
+        # Map user positions (1,2) to Waters protocol positions (1,0) 
+        # User position 1 = Waters position 1 (Tray 1)
+        # User position 2 = Waters position 0 (Tray 2)
+        # NOTE: Tray 2 (Waters position 0) was throwing errors during testing - may need hardware check
+        waters_position = 1 if tray_position == 1 else 0
 
         try:
+            # Check system ready before extract
+            self.logger.info(f"Checking system status before extract from position {tray_position}...")
+            if not self._check_ready():
+                self.logger.error("System not ready for extract operation")
+                return False
+            self.logger.info("System ready for extract")
+
             # Send extract command - format appears to be Extract(tray_position) based on responses
-            response = self._send_command(f"Extract({tray_position})")
+            response = self._send_command(f"Extract({waters_position})")
 
             # Check the immediate response for success/error
             if "Error(" in response:
                 self.logger.error(f"Extract command failed immediately: {response}")
                 return False
+            
+            self.logger.info(f"Extract command sent successfully to position {tray_position}")
 
-            # Wait for completion and check final status
-            max_wait_time = 30  # seconds
-            start_time = time.time()
+            # Wait for extract operation to complete
+            if not self._wait_for_ready(timeout=120, operation_name="extract"):
+                self.logger.error("Extract operation did not complete properly")
+                return False
 
-            while time.time() - start_time < max_wait_time:
-                status_response = self._send_command("GetStatus")
-
-                # Check if operation completed successfully
-                if "Completed(" in status_response and "Extract" in status_response:
-                    self.logger.info(
-                        f"Drawer extracted successfully from position {tray_position}"
-                    )
-                    return True
-
-                # Check for error in status
-                if "Error(" in status_response and "Extract" in status_response:
-                    self.logger.error(f"Extract operation failed: {status_response}")
-                    return False
-
-                time.sleep(0.5)
-
-            # Timeout - operation didn't complete
-            self.logger.error(
-                f"Extract operation timed out after {max_wait_time} seconds"
-            )
-            return False
+            self.logger.info(f"Tray extracted successfully from position {tray_position}")
+            return True
 
         except Exception as e:
-            self.logger.error(f"Error extracting drawer: {e}")
+            self.logger.error(f"Error extracting tray: {e}")
             return False
 
     def insert_drawer(self, tray_position: int) -> bool:
         """
-        Insert a drawer into the specified sample manager tray position.
+        Insert a tray into the specified sample manager tray position.
 
         Args:
-            tray_position: Tray position (0 or 1)
+            tray_position: Tray position (1 or 2)
 
         Returns:
             True if insertion successful, False otherwise
         """
-        if tray_position not in [0, 1]:
-            raise ValueError("Tray position must be 0 or 1")
+        if tray_position not in [1, 2]:
+            raise ValueError("Tray position must be 1 or 2")
+
+        # Map user positions (1,2) to Waters protocol positions (1,0)
+        # User position 1 = Waters position 1 (Tray 1)  
+        # User position 2 = Waters position 0 (Tray 2)
+        # NOTE: Tray 2 (Waters position 0) was throwing errors during testing - may need hardware check
+        waters_position = 1 if tray_position == 1 else 0
 
         try:
+            # Check system ready before insert
+            self.logger.info(f"Checking system status before insert to position {tray_position}...")
+            if not self._check_ready():
+                self.logger.error("System not ready for insert operation")
+                return False
+            self.logger.info("System ready for insert")
+
             # Send insert command - format appears to be Insert(tray_position) based on responses
-            response = self._send_command(f"Insert({tray_position})")
+            response = self._send_command(f"Insert({waters_position})")
 
             # Check the immediate response for success/error
             if "Error(" in response:
                 self.logger.error(f"Insert command failed immediately: {response}")
                 return False
+            
+            self.logger.info(f"Insert command sent successfully to position {tray_position}")
 
-            # Wait for completion and check final status
-            max_wait_time = 30  # seconds
-            start_time = time.time()
+            # Wait for insert operation to complete
+            if not self._wait_for_ready(timeout=120, operation_name="insert"):
+                self.logger.error("Insert operation did not complete properly")
+                return False
 
-            while time.time() - start_time < max_wait_time:
-                status_response = self._send_command("GetStatus")
-
-                # Check if operation completed successfully
-                if "Completed(" in status_response and "Insert" in status_response:
-                    self.logger.info(
-                        f"Drawer inserted successfully to position {tray_position}"
-                    )
-                    return True
-
-                # Check for error in status
-                if "Error(" in status_response and "Insert" in status_response:
-                    self.logger.error(f"Insert operation failed: {status_response}")
-                    return False
-
-                time.sleep(0.5)
-
-            # Timeout - operation didn't complete
-            self.logger.error(
-                f"Insert operation timed out after {max_wait_time} seconds"
-            )
-            return False
+            self.logger.info(f"Tray inserted successfully to position {tray_position}")
+            return True
 
         except Exception as e:
-            self.logger.error(f"Error inserting drawer: {e}")
+            self.logger.error(f"Error inserting tray: {e}")
             return False
 
     def report_version(self) -> str:
@@ -535,10 +525,10 @@ class AutomationPortalDriver:
 
     def is_drawer_present(self) -> Optional[bool]:
         """
-        Check if a drawer is currently present.
+        Check if a tray is currently present.
 
         Returns:
-            True if drawer present, False if not, None if status unknown
+            True if tray present, False if not, None if status unknown
         """
         try:
             status = self.get_status()
@@ -576,6 +566,46 @@ class AutomationPortalDriver:
         except Exception as e:
             self.logger.error(f"Error checking door status: {e}")
             return None
+
+    def _check_ready(self) -> bool:
+        """Check if system is ready for operations"""
+        status = self.get_status()
+        is_operational = status.get("system_state") == "OPERATIONAL"
+        is_idle = status.get("status") == "Idle"  # Must be exactly 'Idle', not 'WaitingForSmIdle'
+
+        return status.get("success") and is_operational and is_idle
+
+    def _wait_for_ready(
+        self, timeout: float = 120, operation_name: str = "operation"
+    ) -> bool:
+        """Poll until system returns to OPERATIONAL and Idle state"""
+        self.logger.info(f"Waiting for {operation_name} to complete...")
+        start_time = time.time()
+
+        while time.time() - start_time < timeout:
+            status = self.get_status()
+            if status.get("success"):
+                current_status = status.get("status", "Unknown")
+                current_system = status.get("system_state", "Unknown")
+                self.logger.debug(f"Status: {current_system} / {current_status}")
+
+                if self._check_ready():
+                    elapsed = time.time() - start_time
+                    self.logger.info(f"System ready after {elapsed:.1f} seconds")
+                    
+                    # Add stabilization delay after reaching Idle state
+                    self.logger.debug(f"Adding {config.STABILIZATION_DELAY} second stabilization delay...")
+                    time.sleep(config.STABILIZATION_DELAY)
+                    self.logger.debug("Stabilization complete, system ready for next operation")
+                    
+                    return True
+            else:
+                self.logger.warning("Failed to get status")
+
+            time.sleep(2)  # Poll every 2 seconds
+
+        self.logger.error(f"Timeout: System not ready after {timeout} seconds")
+        return False
 
     def __enter__(self):
         """Context manager entry."""
@@ -631,16 +661,16 @@ def example_sample_transfer():
                 status = driver.get_status()
                 print(f"System status: {status}")
 
-                # Extract drawer from position 0
-                if driver.extract_drawer(0):
-                    print("Drawer extracted from position 0")
+                # Extract tray from position 2
+                if driver.extract_drawer(2):
+                    print("Tray extracted from position 2")
 
                     # Wait for user to load/unload samples
                     input("Load/unload samples, then press Enter...")
 
-                    # Insert drawer back to position 0
-                    if driver.insert_drawer(0):
-                        print("Drawer inserted back to position 0")
+                    # Insert tray back to position 2
+                    if driver.insert_drawer(2):
+                        print("Tray inserted back to position 2")
 
     finally:
         driver.disconnect()
