@@ -92,9 +92,20 @@ class WatersEmpower:
         if template:
             cmd.extend(["--template", template])
         for key, value in kwargs.items():
+            # Ensure arguments with special characters are properly handled
             cmd.extend([f"--{key.replace('_', '-')}", str(value)])
         
+        # Debug: Print the exact command being run
+        print(f"DEBUG: Running command: {cmd}")
+        print(f"DEBUG: Command as string: {' '.join(str(x) for x in cmd)}")
+        
         result = subprocess.run(cmd, capture_output=True, text=True)
+        
+        # Debug: Print subprocess output
+        print(f"DEBUG: Return code: {result.returncode}")
+        print(f"DEBUG: STDOUT: {result.stdout}")
+        print(f"DEBUG: STDERR: {result.stderr}")
+        
         return result.returncode == 0
     
     def execute_sample_set(self, name):

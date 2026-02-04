@@ -73,14 +73,38 @@ def inspect_sample_set(sample_set_name):
         print(f"Error reading sample set: {e}")
         return None
 
-def create_test_sample_set(name=None, volume="15.0"):
+def create_test_sample_set(name=None, volume=None, template=None, runtime=None, 
+                          vials=None, sample_names=None, sample_weight=None, dilution=None):
     """Create a new sample set for testing"""
     empower = WatersEmpower()
     if name is None:
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         name = f"test_{timestamp}"
     
-    created = empower.create_sample_set(name, injection_volume=volume)
+    # Build parameters - only include injection_volume if explicitly provided
+    params = {}
+    if volume:
+        params['injection_volume'] = float(volume)
+    if template:
+        params['template'] = template
+    if runtime:
+        params['runtime'] = float(runtime)
+    if vials:
+        params['vials'] = vials
+    if sample_names:
+        params['sample_names'] = sample_names
+    if sample_weight:
+        params['sample_weight'] = float(sample_weight)
+    if dilution:
+        params['dilution'] = float(dilution)
+    
+    print(f"Creating sample set '{name}' with parameters:")
+    for key, value in params.items():
+        print(f"  {key}: {value}")
+    if not volume:
+        print("  injection_volume: (using template default)")
+    
+    created = empower.create_sample_set(name, **params)
     print(f"Created sample set '{name}': {created}")
     return created
 
@@ -132,11 +156,19 @@ def show_help():
     print("    Example:")
     print("      python usage_examples.py inspect \"Python_API_Test\"")
     print()
-    print("  create <sample_set_name>")
-    print("    Create a new sample set using default template")
-    print("    Uses 15.0 µL injection volume by default")
-    print("    Example:")
+    print("  create <sample_set_name> [options]")
+    print("    Create a new sample set with optional parameters")
+    print("    Options:")
+    print("      --volume=<µL>           Injection volume (uses template default if not specified)")
+    print("      --template=<name>       Template to use (e.g., 20251002_KC)")
+    print("      --runtime=<minutes>     Runtime in minutes")
+    print("      --vials=<position>      Vial position (e.g., \"1:A,2\" for tray 1, row A, column 2)")
+    print("      --sample-names=<name>   Sample name(s)")
+    print("      --sample-weight=<mg>    Sample weight in milligrams")
+    print("      --dilution=<factor>     Dilution factor")
+    print("    Examples:")
     print("      python usage_examples.py create \"my_experiment\"")
+    print("      python usage_examples.py create \"2026_02_02_KC\" --volume=10.0 --template=20251002_KC --runtime=10.0")
     print()
     print("  run <sample_set_name>")
     print("    Execute a sample set (only if instrument is ready)")
@@ -169,7 +201,37 @@ if __name__ == "__main__":
         elif command == "inspect" and len(sys.argv) > 2:
             inspect_sample_set(sys.argv[2])
         elif command == "create" and len(sys.argv) > 2:
-            create_test_sample_set(sys.argv[2])
+            name = sys.argv[2]
+            # Parse optional parameters
+            volume = None
+            template = None
+            runtime = None
+            vials = None
+            sample_names = None
+            sample_weight = None
+            dilution = None
+            
+            # Check for additional arguments
+            for i in range(3, len(sys.argv)):
+                arg = sys.argv[i]
+                if arg.startswith("--volume="):
+                    volume = arg.split("=", 1)[1]
+                elif arg.startswith("--template="):
+                    template = arg.split("=", 1)[1]
+                elif arg.startswith("--runtime="):
+                    runtime = float(arg.split("=", 1)[1])
+                elif arg.startswith("--vials="):
+                    vials = arg.split("=", 1)[1]
+                elif arg.startswith("--sample-names="):
+                    sample_names = arg.split("=", 1)[1]
+                elif arg.startswith("--sample-weight="):
+                    sample_weight = float(arg.split("=", 1)[1])
+                elif arg.startswith("--dilution="):
+                    dilution = float(arg.split("=", 1)[1])
+            
+            create_test_sample_set(name, volume=volume, template=template, runtime=runtime, 
+                                 vials=vials, sample_names=sample_names, 
+                                 sample_weight=sample_weight, dilution=dilution)
         elif command == "run" and len(sys.argv) > 2:
             run_sample_set(sys.argv[2])
         elif command == "help":
@@ -179,7 +241,7 @@ if __name__ == "__main__":
             print("  python usage_examples.py status [-v]")
             print("  python usage_examples.py list")
             print("  python usage_examples.py inspect <sample_set_name>")
-            print("  python usage_examples.py create <sample_set_name>")
+            print("  python usage_examples.py create <sample_set_name> [--volume=X] [--template=X] [--runtime=X] [--vials=X] [--sample-names=X] [--sample-weight=X] [--dilution=X]")
             print("  python usage_examples.py run <sample_set_name>")
             print("  python usage_examples.py help")
     else:

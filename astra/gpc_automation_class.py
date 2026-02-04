@@ -172,69 +172,92 @@ class GPCAutomation:
             self.log(f"❌ Experiment preparation failed: {e}")
             return {'success': False, 'experiment_id': None, 'timestamp': None, 'results_folder': None}
     
-    def wait_for_injection_signal(self, experiment_id):
+    def wait_and_collect_data(self, experiment_id):
         """
-        Phase 2: Wait for external injection signal from HPLC/Empower.
+        Phase 2: Wait for injection signal AND collect data (THREADED OPERATION).
+        
+        This method combines waiting for injection with data collection and should
+        be run in a separate thread while HPLC/Empower injection occurs.
         
         Args:
             experiment_id: ID of the experiment waiting for injection
         
         Returns:
-            bool: True if signal received, False if error/timeout
-        """
-        try:
-            self.log(f"=== Phase 2: Waiting for External Injection Signal (Exp: {experiment_id}) ===")
-            self.log("🔄 READY FOR HPLC INJECTION - Waiting for auto-inject signal...")
-            
-            # This blocks until external inject signal received
-            self.admin.wait_waiting_for_auto_inject()
-            self.log("✓ Injection signal received from external system!")
-            
-            return True
-            
-        except Exception as e:
-            self.log(f"❌ Failed waiting for injection signal: {e}")
-            return False
-    
-    def collect_and_process_data(self, experiment_id, results_folder, timestamp):
-        """
-        Phase 3: Collect data and process results.
-        
-        Args:
-            experiment_id: ID of the experiment to collect data for
-            results_folder: Path to save results files
-            timestamp: Timestamp string for file naming
-        
-        Returns:
             dict: {
                 'success': bool,
                 'collection_duration_minutes': float or None,
-                'exported_files': list of file paths,
-                'molecular_weights': dict or None
+                'collection_start_time': datetime or None,
+                'collection_end_time': datetime or None
             }
         """
         try:
-            self.log(f"=== Phase 3: Data Collection and Processing (Exp: {experiment_id}) ===")
+            self.log(f"=== Phase 2: Waiting for Injection & Data Collection (Exp: {experiment_id}) ===")
+            self.log("🔄 READY FOR HPLC INJECTION - Waiting for auto-inject signal...")
             
-            exported_files = []
+            # Step 1: Wait for external injection signal
+            self.admin.wait_waiting_for_auto_inject()
+            self.log("✓ Injection signal received from external system!")
             
-            # Step 6: Wait for collection to start
+            # Step 2: Wait for collection to actually start
             self.admin.wait_collection_started()
+            collection_start_time = datetime.now()
             self.log("✓ Data collection started")
             
-            # Step 7: Wait for collection to finish
-            collection_start_time = datetime.now()
+            # Step 3: Wait for collection to finish (this is the long parallel step)
             self.admin.wait_collection_finished()
             collection_end_time = datetime.now()
             collection_duration = (collection_end_time - collection_start_time).total_seconds() / 60
             self.log(f"✓ Data collection completed ({collection_duration:.2f} minutes)")
             
-            # Step 9: Run experiment to generate final results
+            return {
+                'success': True,
+                'collection_duration_minutes': collection_duration,
+                'collection_start_time': collection_start_time,
+                'collection_end_time': collection_end_time
+            }
+            
+        except Exception as e:
+            self.log(f"❌ Data collection failed: {e}")
+            return {
+                'success': False,
+                'collection_duration_minutes': None,
+                'collection_start_time': None,
+                'collection_end_time': None
+            }
+    
+    def process_and_save_results(self, experiment_id, results_folder, timestamp, collection_duration=None):
+        """
+        Phase 3: Process data and save all results (AFTER data collection completes).
+        
+        This method handles all the post-collection processing: running analysis,
+        saving files, exporting datasets, and extracting molecular weights.
+        
+        Args:
+            experiment_id: ID of the experiment to process
+            results_folder: Path to save results files
+            timestamp: Timestamp string for file naming
+            collection_duration: Optional duration from collection phase
+        
+        Returns:
+            dict: {
+                'success': bool,
+                'exported_files': list of file paths,
+                'molecular_weights': dict or None
+            }
+        """
+        try:
+            self.log(f"=== Phase 3: Processing and Saving Results (Exp: {experiment_id}) ===")
+            if collection_duration is not None:
+                self.log(f"📊 Data collection took {collection_duration:.2f} minutes")
+            
+            exported_files = []
+            
+            # Step 1: Run experiment to generate final results
             self.log("Processing data and calculating molecular weights...")
             self.admin.run_experiment(experiment_id)
             self.log("✓ Data processing completed")
             
-            # Step 10: Save experiment file
+            # Step 2: Save experiment file
             if self.export_experiment_file:
                 experiment_filename = f"experiment_{timestamp}.aex"
                 experiment_path = os.path.join(results_folder, experiment_filename)
@@ -245,7 +268,7 @@ class GPCAutomation:
                     self.log(f"✓ Experiment saved: {exp_size:,} bytes")
                     exported_files.append(experiment_path)
             
-            # Step 11: Export XML results and analyze molecular weights
+            # Step 3: Export XML results and analyze molecular weights
             molecular_weights = None
             if self.export_xml_results:
                 results_filename = f"results_{timestamp}.xml"
@@ -262,25 +285,23 @@ class GPCAutomation:
                     if self.show_molecular_weights:
                         molecular_weights = self._extract_and_display_molecular_weights(results_path, results_folder, timestamp)
             
-            # Step 12: Export CSV datasets  
+            # Step 4: Export CSV datasets  
             if self.export_csv_datasets:
                 csv_files = self._export_csv_datasets(experiment_id, results_folder, timestamp)
                 exported_files.extend(csv_files)
                 self.log(f"✓ Exported {len(csv_files)} CSV dataset files")
             
-            self.log("✅ All data collection and processing completed successfully")
+            self.log("✅ All data processing and export completed successfully")
             return {
                 'success': True,
-                'collection_duration_minutes': collection_duration,
                 'exported_files': exported_files,
                 'molecular_weights': molecular_weights
             }
             
         except Exception as e:
-            self.log(f"❌ Data collection/processing failed: {e}")
+            self.log(f"❌ Data processing/export failed: {e}")
             return {
                 'success': False,
-                'collection_duration_minutes': None,
                 'exported_files': [],
                 'molecular_weights': None
             }
@@ -336,7 +357,7 @@ class GPCAutomation:
         Run the complete automation workflow in one call.
         
         This combines all phases for backwards compatibility with
-        the original script behavior.
+        the original script behavior. NOTE: This is sequential, not threaded.
         
         Args:
             astra_method_path: Full path to ASTRA method template
@@ -346,7 +367,8 @@ class GPCAutomation:
             dict: {
                 'success': bool,
                 'experiment_id': str or None,
-                'results': dict or None  # Results from collect_and_process_data
+                'collection_results': dict or None,
+                'processing_results': dict or None
             }
         """
         experiment_id = None
@@ -354,34 +376,37 @@ class GPCAutomation:
             # Phase 1: Prepare
             prep_result = self.prepare_experiment_for_collection(astra_method_path, experiment_name)
             if not prep_result['success']:
-                return {'success': False, 'experiment_id': None, 'results': None}
+                return {'success': False, 'experiment_id': None, 'collection_results': None, 'processing_results': None}
             
             experiment_id = prep_result['experiment_id']
             
-            # Phase 2: Wait for injection
-            if not self.wait_for_injection_signal(experiment_id):
-                return {'success': False, 'experiment_id': experiment_id, 'results': None}
+            # Phase 2: Wait and collect (blocking, not threaded)
+            collection_result = self.wait_and_collect_data(experiment_id)
+            if not collection_result['success']:
+                return {'success': False, 'experiment_id': experiment_id, 'collection_results': collection_result, 'processing_results': None}
             
-            # Phase 3: Collect and process
-            results = self.collect_and_process_data(
+            # Phase 3: Process and save
+            processing_result = self.process_and_save_results(
                 experiment_id, 
                 prep_result['results_folder'], 
-                prep_result['timestamp']
+                prep_result['timestamp'],
+                collection_result.get('collection_duration_minutes')
             )
-            if not results['success']:
-                return {'success': False, 'experiment_id': experiment_id, 'results': results}
+            if not processing_result['success']:
+                return {'success': False, 'experiment_id': experiment_id, 'collection_results': collection_result, 'processing_results': processing_result}
             
             self._print_final_summary(prep_result['results_folder'], prep_result['timestamp'])
             
             return {
                 'success': True,
                 'experiment_id': experiment_id,
-                'results': results
+                'collection_results': collection_result,
+                'processing_results': processing_result
             }
             
         except Exception as e:
             self.log(f"❌ Complete workflow failed: {e}")
-            return {'success': False, 'experiment_id': experiment_id, 'results': None}
+            return {'success': False, 'experiment_id': experiment_id, 'collection_results': None, 'processing_results': None}
         
         finally:
             if experiment_id:

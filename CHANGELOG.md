@@ -2,7 +2,81 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased] - 2026-01-30
+## [Unreleased] - 2026-02-02
+
+### DEVELOPMENT MODE TOGGLE - Manual vs Automated Empower Execution
+- **🔧 DEVELOPMENT TOGGLE**: Added configuration flag to easily switch between manual and automated Empower execution
+  - Added `empower.manual_execution` configuration option
+  - Added `MANUAL_EMPOWER_MODE` toggle in main() function for easy development switching
+  - Manual mode displays sample set parameters and waits for user confirmation
+  - Automated mode runs full programmatic Empower execution as before
+  - Enhanced logging to clearly indicate which mode is active
+
+### EMPOWER PARAMETER FIXES - COM Execution Issue Resolution
+- **🔧 SIMPLIFIED SAMPLE SET PARAMETERS**: Fixed Empower sample set creation parameters to match actual C# API requirements
+  - Cleaned up parameter passing to only include explicitly provided values (no None values)
+  - Simplified sample set naming: `GPC_{timestamp}` instead of `{sample_name}_{full_timestamp}`
+  - Fixed parameter validation to prevent COM invocation errors during sample set execution
+
+## [Previous] - 2026-01-30
+
+### FLEXIBLE TRAY MANAGEMENT - Sample Handling Options
+- **⚙️ CONFIGURABLE TRAY EXTRACTION**: Added optional `initial_tray_open` parameter:
+  - `initial_tray_open=True` (default): Extract tray, wait for loading, insert tray
+  - `initial_tray_open=False`: Skip extraction, assume samples already loaded
+- **📤 CONFIGURABLE POST-COMPLETION TRAY**: Added optional `send_out_after` parameter:
+  - `send_out_after=True` (default): Extract tray after completion for sample collection
+  - `send_out_after=False`: Leave tray in position after completion
+- **⏱️ INJECTION TIMING CONTROL**: Added optional `astra_ready_delay` parameter:
+  - Configurable delay (default 5.0 seconds) between ASTRA thread start and Empower execution
+  - Ensures ASTRA is fully ready to receive injection signal from Empower
+  - Example set to 8.0 seconds for safer timing margin
+- **🔍 ENHANCED TIMING LOGS**: Added detailed timing logs around injection signal transmission
+- **🎯 USE CASES SUPPORTED**:
+  - Pre-loaded batch processing (`initial_tray_open=False`)
+  - Automated sample collection (`send_out_after=True`)
+  - Minimal tray movement for throughput (`initial_tray_open=False`, `send_out_after=False`)
+- **📋 EXAMPLE CONFIGURATION**: Updated sample_info with new parameters and defaults
+
+### ASTRA THREADING REDESIGN - Parallel Data Collection
+- **🔄 PARALLEL WORKFLOW DESIGN**: Restructured GPC automation for proper parallel execution:
+  - Phase 1: `prepare_experiment_for_collection()` - Setup experiment, start collection
+  - Phase 2: `wait_and_collect_data()` - **THREADED** wait for injection + data collection  
+  - Phase 3: `process_and_save_results()` - Process data and save files (after collection)
+- **⚡ THREADING-READY**: Phase 2 designed to run in separate thread while HPLC injection occurs
+- **🎯 PROPER TIMING**: Data collection now happens concurrently with HPLC, not sequentially after
+- **🧵 ORCHESTRATOR THREADING**: Implemented threaded execution in orchestrator:
+  - ASTRA `wait_and_collect_data()` runs in background thread
+  - Empower execution runs in main thread (triggers ASTRA injection signal)
+  - Main thread waits for ASTRA thread completion before processing results
+- **📊 COLLECTION DURATION LOGGING**: Added collection duration to processing phase logs
+- **🔧 METHOD SIGNATURES FIXED**:
+  - ASTRA: `prepare_experiment_for_collection(method_path, experiment_name=sample_name)`
+  - Empower: `execute_sample_set()` returns status dict, not boolean
+  - Added proper error handling for Empower execution status
+- **🔧 METHOD CONSOLIDATION**:
+  - Removed: `wait_for_injection_signal()` and `collect_and_process_data()`
+  - Added: `wait_and_collect_data()` (combines injection wait + collection)
+  - Added: `process_and_save_results()` (handles all post-collection processing)
+- **✅ BACKWARDS COMPATIBILITY**: Updated `run_complete_workflow()` to use new structure
+
+### CRITICAL FIX - Multi-Tray Status Logic
+- **🔧 COMPLETE TRAY STATUS MAPPING**: Discovered full status patterns for both trays:
+  - Tray 1 OUT: `drawer_tray_status="DrawerAndTray"` + `Mode: Extract(1)`
+  - Tray 1 IN: `drawer_tray_status="NoDrawerNoTray"` + `Mode: Insert(1)`  
+  - Tray 2 OUT: `drawer_tray_status="DrawerNoTray"` + `Mode: Extract(0)`
+  - Tray 2 IN: `drawer_tray_status="NoDrawerNoTray"` + `Mode: Insert(0)`
+- **✅ SMART MULTI-TRAY LOGIC**: Implemented `ensure_tray_available()` method that:
+  - Parses current tray state from Mode field
+  - Handles wrong tray being out (inserts it first)
+  - Extracts correct target tray
+  - Prevents conflicts between Tray 1 and Tray 2
+- **🛠️ NEW HELPER FUNCTIONS**: 
+  - `_parse_current_tray_from_mode()`: Determines which tray is currently out
+  - `_is_tray_extracted()`: Checks if specific tray is extracted
+- **🧪 ENHANCED TEST SCRIPT**: Updated test script to show complete mode analysis and tray-specific interpretations
+- **⚠️ BACKWARDS COMPATIBILITY**: Replaces simple tray logic with comprehensive multi-tray management
+
 ### MULTI-EXPERIMENT REFACTORING
 - **✅ DECOUPLED EXPERIMENT STATE**: Refactored `GPCAutomation` class to support multiple experiments by removing experiment-specific state from `__init__`
 - **✅ STATELESS METHODS**: Methods now return experiment metadata (experiment_id, timestamp, results_folder) instead of storing as instance variables
@@ -279,3 +353,20 @@ All notable changes to this project will be documented in this file.
 - Directory now contains only proven, working code
 - Eliminated all failed attempts with guessed Waters method names
 - Based on official Waters instrument control example patterns
+
+## [Unreleased] - 2026-02-02
+
+### THREADING ARCHITECTURE REDESIGN - COM Compatibility Fix
+- **🏗️ REVERSE THREADING APPROACH**: Fixed critical threading deadlock by redesigning execution flow:
+  - **OLD**: ASTRA waits in background thread (fails due to COM threading constraints)  
+  - **NEW**: ASTRA waits in main thread, Empower executes in background thread
+- **🔧 THREADING SEQUENCE**:
+  - Phase 5: ASTRA `wait_waiting_for_auto_inject()` in main thread (COM compatible)
+  - Phase 6: Start Empower thread with configurable delay (default 120s)
+  - Phase 7: ASTRA continues `wait_collection_started()` → `wait_collection_finished()` in main thread
+  - Empower thread triggers injection signal after delay
+- **⏱️ IMPROVED TIMING CONTROL**: Updated `astra_ready_delay` to default 120 seconds (user suggested)
+- **🧵 COM INTERFACE COMPATIBILITY**: Keeps ASTRA COM calls in main thread where they work reliably
+- **🎯 FULLY AUTOMATED**: Achieves parallel execution without manual intervention
+- **📊 ENHANCED LOGGING**: Added thread-specific log messages for debugging timing issues
+- **✅ PROVEN APPROACH**: Based on working sequential logic from `enhanced_gpc_automation.py`
