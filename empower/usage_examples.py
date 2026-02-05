@@ -160,6 +160,7 @@ def show_help():
     print("    Create a new sample set with optional parameters")
     print("    Options:")
     print("      --volume=<µL>           Injection volume (uses template default if not specified)")
+    print("      --injection-volume=<µL> Injection volume (same as --volume)")
     print("      --template=<name>       Template to use (e.g., 20251002_KC)")
     print("      --runtime=<minutes>     Runtime in minutes")
     print("      --vials=<position>      Vial position (e.g., \"1:A,2\" for tray 1, row A, column 2)")
@@ -214,7 +215,7 @@ if __name__ == "__main__":
             # Check for additional arguments
             for i in range(3, len(sys.argv)):
                 arg = sys.argv[i]
-                if arg.startswith("--volume="):
+                if arg.startswith("--volume=") or arg.startswith("--injection-volume="):
                     volume = arg.split("=", 1)[1]
                 elif arg.startswith("--template="):
                     template = arg.split("=", 1)[1]
@@ -241,7 +242,7 @@ if __name__ == "__main__":
             print("  python usage_examples.py status [-v]")
             print("  python usage_examples.py list")
             print("  python usage_examples.py inspect <sample_set_name>")
-            print("  python usage_examples.py create <sample_set_name> [--volume=X] [--template=X] [--runtime=X] [--vials=X] [--sample-names=X] [--sample-weight=X] [--dilution=X]")
+            print("  python usage_examples.py create <sample_set_name> [--volume=X] [--injection-volume=X] [--template=X] [--runtime=X] [--vials=X] [--sample-names=X] [--sample-weight=X] [--dilution=X]")
             print("  python usage_examples.py run <sample_set_name>")
             print("  python usage_examples.py help")
     else:

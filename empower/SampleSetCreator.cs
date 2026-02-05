@@ -66,11 +66,11 @@ class SampleSetCreator
                 case "--vials":
                 case "--positions":
                 case "-p":
-                    // Allow comma-separated list like "1:A,1,1:A,2,1:A,3"
+                    // Single vial position only (format: "1:A,2" for tray 1, row A, column 2)
                     if (i + 1 < args.Length)
                     {
-                        string vialList = args[++i];
-                        vials.AddRange(vialList.Split(',').Select(s => s.Trim()));
+                        string vialPosition = args[++i];
+                        vials.Add(vialPosition.Trim());
                     }
                     break;
                 case "--runtime":
@@ -113,7 +113,7 @@ class SampleSetCreator
             Console.WriteLine("  --template <name>, -t <name>           Template sample set to copy from (default: " + (empowerConfig.ContainsKey("default_template") ? empowerConfig["default_template"] : "20251002_KC") + ")");
             Console.WriteLine("  --injection-volume <vol>, -v <vol>     Injection volume in µL");
             Console.WriteLine("  --sample-names <names>, -s <names>     Comma-separated sample names (e.g., \"MN11,MN12,MN13\")");
-            Console.WriteLine("  --vials <positions>, -p <positions>    Comma-separated vial positions (e.g., \"1:A,1,1:A,2,1:A,3\")");
+            Console.WriteLine("  --vials <position>, -p <position>      Single vial position (e.g., \"1:A,2\" for tray 1, row A, column 2)");
             Console.WriteLine("  --runtime <time>, -r <time>            Runtime in minutes");
             Console.WriteLine("  --sample-weight <weight>, -w <weight>  Sample weight");
             Console.WriteLine("  --dilution <factor>, -d <factor>       Dilution factor");
@@ -127,7 +127,7 @@ class SampleSetCreator
             Console.WriteLine("  SampleSetCreator.exe --name \"MySet\" --injection-volume 10.0");
             Console.WriteLine();
             Console.WriteLine("  # Create with vial position and injection volume");
-            Console.WriteLine("  SampleSetCreator.exe --name \"TestSet\" --vials \"1:A,1\" --injection-volume 5.0");
+            Console.WriteLine("  SampleSetCreator.exe --name \"TestSet\" --vials \"1:A,2\" --injection-volume 5.0");
             Console.WriteLine();
             Console.WriteLine("  # Use different template");
             Console.WriteLine("  SampleSetCreator.exe --name \"FromOther\" --template \"20251029_KC\"");

@@ -272,13 +272,28 @@ The Python wrapper uses subprocess calls to communicate with compiled C# executa
 - **Python 3.6+** (for wrapper)
 - **Valid Empower credentials** in `secrets.ini`
 
-**Hardware Compatibility**: The pre-compiled executables are 32-bit and should work on most Windows systems. If you encounter compatibility issues with different hardware or Waters instrument configurations, you may need to recompile the C# source files on your target system:
+**Hardware Compatibility**: The pre-compiled executables are 32-bit and should work on most Windows systems. If you encounter compatibility issues with different hardware or Waters instrument configurations, you may need to recompile the C# source files on your target system.
+
+## C# Compilation Instructions
+
+**CRITICAL**: For COM compatibility with Waters Empower, you MUST compile with the `/platform:x86` flag to ensure 32-bit executables:
 
 ```cmd
-C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe /platform:x86 /target:exe SampleSetExtractor.cs
-C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe /platform:x86 /target:exe SampleSetCreator.cs  
-C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe /platform:x86 /target:exe SampleSetReader.cs
+# Compile all three C# executables with x86 platform targeting
+C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe /platform:x86 /out:SampleSetCreator.exe SampleSetCreator.cs
+C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe /platform:x86 /out:SampleSetReader.exe SampleSetReader.cs  
+C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe /platform:x86 /out:SampleSetExtractor.exe SampleSetExtractor.cs
 ```
+
+**What Works**: 
+- .NET Framework v4.0.30319 with `/platform:x86` flag ✅
+- Empower COM objects accessible through MillenniumToolkit.Project ✅
+- Single vial position format "1:A,2" correctly parsed ✅
+
+**What Doesn't Work**:
+- Default compilation without platform flag (results in COM registration errors)
+- 64-bit compilation with `/platform:x64` 
+- Older .NET Framework versions (v2.0, v3.5) due to `var` keyword usage
 
 
 ---
