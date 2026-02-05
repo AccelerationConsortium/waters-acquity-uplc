@@ -604,7 +604,6 @@ class GPCOrchestrator:
         current_tray_out = self._parse_current_tray_from_mode(mode)
         return current_tray_out == target_tray
     
-
     def ensure_tray_available(self, target_tray: int) -> bool:
         """
         Ensure the specified tray is available (extracted) for sample loading.
@@ -723,7 +722,7 @@ def main():
             'injection_volume': 15.0,
             'initial_tray_open': False,    # Whether to extract tray for sample loading
             'send_out_after': True,        # Whether to extract tray after completion
-            'astra_ready_delay': 30.0,      # Seconds to wait before Empower execution (ensure ASTRA is ready)
+            'astra_ready_delay': 45.0,      # Seconds to wait before Empower execution (ensure ASTRA is ready)
             'results_dir': r'C:\\GPC_Results\\Runs',  # Optional per-run ASTRA results directory
             # Optional Empower parameters:
             'runtime': 10,          # Runtime in minutes

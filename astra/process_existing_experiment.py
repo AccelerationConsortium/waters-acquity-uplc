@@ -1,62 +1,52 @@
 #!/usr/bin/env python3
 """
-Enhanced GPC Automation - Complete Data Collection & Analysis
+Process Existing Experiment - Extract Data from Saved Experiments
 
 This script:
-1. Creates a timestamped results folder for each run
-2. Executes the full GPC automation workflow 
-3. Exports XML results and CSV datasets
-4. Extracts and displays molecular weight values
-5. Saves a summary text file with all results
+1. Takes a folder path containing an experiment file (.aex or .aex.afe8)
+2. Opens the experiment and re-exports XML and CSV data
+3. Extracts and displays molecular weight analysis
+4. Saves summary to the same folder
+
+Usage: python process_existing_experiment.py <folder_path>
 """
 
 import os
-import uuid
+import sys
 import re
-import shutil
 from datetime import datetime
 from astra_admin import AstraAdmin
 
-# =============================================================================
-# CONFIGURATION PARAMETERS
-# =============================================================================
-
-# ASTRA Method Settings
-ASTRA_METHOD_PATH = r"//dbf/Method Builder/Owen/test_method_3"
-APP_NAME = "Enhanced GPC Test"
-APP_VERSION = "1.0.0.0"
-
-# File Paths and Directories
-BASE_RESULTS_DIR = r"C:\Users\Administrator.WS\Desktop\wyatt-api\gpc-automation\results"
-FOLDER_PREFIX = "gpc_run"  # Creates folders like "gpc_run_20260113_151025"
-
-# Data Export Settings
-EXPORT_XML_RESULTS = True
-EXPORT_CSV_DATASETS = True
-EXPORT_EXPERIMENT_FILE = True
-CREATE_SUMMARY_FILE = True
-
-# Dataset Definitions to Export (must match ASTRA dataset names exactly)
+# Configuration from original script
 DATASET_EXPORTS = [
     ("masses vs volume", "Mass chromatogram data"),
     ("rms radius vs volume", "RMS radius chromatogram data")
 ]
 
-# Display Settings
 SHOW_MOLECULAR_WEIGHTS_IN_TERMINAL = True
-PDI_DECIMAL_PLACES = 3  # Extra precision for polydispersity
-MW_DECIMAL_PLACES = 1   # Standard precision for molecular weights
-
-# Timeout Settings (if needed in future)
-INSTRUMENT_WAIT_TIMEOUT = 300  # seconds
-COLLECTION_TIMEOUT = 1800      # 30 minutes max collection time
-
-# =============================================================================
+PDI_DECIMAL_PLACES = 3
+MW_DECIMAL_PLACES = 1
 
 def log(message: str):
     """Log with timestamp"""
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"[{timestamp}] {message}")
+
+def find_experiment_file(folder_path):
+    """Find the .aex or .aex.afe8 experiment file in the given folder"""
+    if not os.path.exists(folder_path):
+        raise ValueError(f"Folder does not exist: {folder_path}")
+    
+    # Look for both .aex and .aex.afe8 files
+    aex_files = [f for f in os.listdir(folder_path) if f.endswith('.aex') or f.endswith('.aex.afe8')]
+    
+    if not aex_files:
+        raise ValueError(f"No .aex or .aex.afe8 experiment files found in: {folder_path}")
+    
+    if len(aex_files) > 1:
+        log(f"Found multiple experiment files, using: {aex_files[0]}")
+    
+    return os.path.join(folder_path, aex_files[0])
 
 def extract_peak_results(xml_content):
     """Extract peak molecular weight results from ASTRA XML"""
@@ -295,182 +285,127 @@ def display_and_save_results(peak_data, results_folder):
     
     print("="*50)
     print("✅ SUCCESS: Complete molecular weight analysis!")
-    print("💾 All data saved to timestamped results folder")
+    print("💾 All data saved to folder")
     print("="*50)
 
-def main():
-    """Enhanced GPC automation with organized data saving"""
-    log("🚀 Enhanced GPC Automation with Complete Data Organization")
-    log("Creates timestamped folders and extracts molecular weight data")
+def process_experiment(folder_path):
+    """Process an existing experiment file in the given folder"""
+    log(f"🔍 Processing experiment in folder: {folder_path}")
     
-    # Display current configuration
-    log(f"📋 ASTRA Method: {ASTRA_METHOD_PATH}")
-    log(f"📁 Results Directory: {BASE_RESULTS_DIR}")
-    log(f"🔬 App Identity: {APP_NAME} v{APP_VERSION}")
-    
-    # Create timestamped results folder for this run
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    run_results_folder = os.path.join(BASE_RESULTS_DIR, f"{FOLDER_PREFIX}_{timestamp}")
-    
+    # Find experiment file
     try:
-        os.makedirs(run_results_folder, exist_ok=True)
-        log(f"📁 Created results folder: {os.path.basename(run_results_folder)}")
-    except Exception as e:
-        log(f"❌ Could not create results folder: {e}")
+        experiment_file = find_experiment_file(folder_path)
+        log(f"📁 Found experiment file: {os.path.basename(experiment_file)}")
+    except ValueError as e:
+        log(f"❌ {e}")
         return False
     
     admin = None
     experiment_id = None
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     
     try:
-        # Step 1: Set automation identity
-        log("=== Step 1: Setting Automation Identity ===")
-        client_id = uuid.uuid4().hex
-        
+        # Initialize ASTRA
+        log("🔧 Initializing ASTRA connection...")
         admin = AstraAdmin()
-        admin.set_automation_identity(
-            APP_NAME, 
-            APP_VERSION,
-            os.getpid(),
-            client_id,
-            1
-        )
-        log("✓ Automation identity set")
         
-        # Step 2: Wait for instruments
-        log("=== Step 2: Waiting for Instruments ===")
-        admin.wait_for_instruments()
-        log("✓ Instruments detected")
+        # Wait for instruments (might be needed for ASTRA to be ready)
+        log("⏳ Waiting for ASTRA to be ready...")
+        try:
+            admin.wait_for_instruments()
+            log("✓ ASTRA is ready")
+        except Exception as wait_error:
+            log(f"⚠ Warning: Could not wait for instruments: {wait_error}")
+            log("   Continuing anyway...")
         
-        # Step 3: Create experiment
-        log("=== Step 3: Creating Experiment ===")
-        experiment_id = admin.new_experiment_from_template(ASTRA_METHOD_PATH)
-        log(f"✓ Experiment created - ID: {experiment_id}")
+        # Open the experiment
+        log("📂 Opening experiment...")
+        experiment_id = admin.open_experiment(experiment_file)
         
-        # Step 4: Start data collection
-        log("=== Step 4: Starting Data Collection ===")
-        admin.start_collection(experiment_id)
-        log("✓ Collection started")
-        
-        # Step 5: Wait for GPC signal
-        log("=== Step 5: Waiting for GPC Auto-Inject Signal ===")
-        admin.wait_waiting_for_auto_inject()
-        log("✓ GPC auto-inject signal received!")
-        
-        # Step 6: Wait for collection to start
-        log("=== Step 6: Waiting for Collection to Start ===")
-        admin.wait_collection_started() 
-        log("✓ Data collection started")
-        
-        # Step 7: Wait for collection to finish
-        log("=== Step 7: Waiting for Collection to Finish ===")
-        collection_start_time = datetime.now()
-        admin.wait_collection_finished()
-        collection_end_time = datetime.now()
-        collection_duration = (collection_end_time - collection_start_time).total_seconds() / 60
-        log(f"✓ Data collection completed ({collection_duration:.2f} minutes)")
-               
-        # Step 9: Run experiment to generate final results
-        log("=== Step 9: Running Experiment to Generate Results ===")
-        log("Triggering final data processing (includes automatic waiting)...")
-        admin.run_experiment(experiment_id)
-        log("✓ Data processing and molecular weight calculations completed")
-
-        import time
-        time.sleep(10)
-        
-        # Step 10: Save experiment with data
-        if EXPORT_EXPERIMENT_FILE:
-            log("=== Step 10: Saving Final Experiment ===")
-            experiment_filename = f"experiment_{timestamp}.aex"
-            experiment_path = os.path.join(run_results_folder, experiment_filename)
-            admin.save_experiment(experiment_id, experiment_path)
+        if experiment_id <= 0:
+            log(f"❌ Failed to open experiment file - ID: {experiment_id}")
+            log("   This could mean the file is corrupted or ASTRA can't read it")
+            return False
             
-            if os.path.exists(experiment_path):
-                exp_size = os.path.getsize(experiment_path)
-                log(f"✓ Final experiment saved: {exp_size:,} bytes")
+        log(f"✓ Experiment opened - ID: {experiment_id}")
         
-        # Step 11: Export XML results and extract molecular weights
-        if EXPORT_XML_RESULTS:
-            log("=== Step 11: Exporting and Analyzing Results ===")
-            results_filename = f"results_{timestamp}.xml"
-            results_path = os.path.join(run_results_folder, results_filename)
-            
-            admin.save_results(experiment_id, results_path)
-            
-            if os.path.exists(results_path):
-                results_size = os.path.getsize(results_path)
-                log(f"✓ XML results exported: {results_size:,} bytes")
+        # Run the experiment to ensure all data is processed
+        log("🔄 Running experiment to process molecular weight calculations...")
+        run_success = admin.run_experiment(experiment_id)
+        if not run_success:
+            log("⚠ Warning: Experiment run may have failed, but continuing...")
+        else:
+            log("✓ Experiment processing completed")
+        
+        # Export NEW XML results ONLY
+        log("📄 Exporting NEW XML results...")
+        results_filename = f"results_xml_{timestamp}.xml"
+        results_path = os.path.join(folder_path, results_filename)
+        
+        admin.save_results(experiment_id, results_path)
+        
+        if not os.path.exists(results_path):
+            log("❌ Failed to create NEW XML results file")
+            return False
+        
+        results_size = os.path.getsize(results_path)
+        log(f"✓ NEW XML results exported: {results_size:,} bytes")
+        
+        # Extract and display molecular weight data from NEW XML only
+        if SHOW_MOLECULAR_WEIGHTS_IN_TERMINAL:
+            try:
+                with open(results_path, 'r', encoding='utf-8') as f:
+                    xml_content = f.read()
                 
-                # Extract and display molecular weight data
-                if SHOW_MOLECULAR_WEIGHTS_IN_TERMINAL:
-                    try:
-                        with open(results_path, 'r', encoding='utf-8') as f:
-                            xml_content = f.read()
-                        
-                        log("🔬 Extracting molecular weight data...")
-                        peak_data = extract_peak_results(xml_content)
-                        
-                        if peak_data:
-                            # Display results in terminal and save summary
-                            display_and_save_results(peak_data, run_results_folder)
-                        else:
-                            log("⚠ No molecular weight data found in XML")
-                            
-                    except Exception as extract_error:
-                        log(f"⚠ Warning: Could not extract molecular weights: {extract_error}")
-        
-        # Step 12: Export CSV datasets
-        if EXPORT_CSV_DATASETS:
-            log("=== Step 12: Exporting CSV Datasets ===")
-            
-            exported_csv_count = 0
-            
-            for dataset_name, description in DATASET_EXPORTS:
-                try:
-                    log(f"Exporting dataset: '{dataset_name}'")
+                log("🔬 Extracting molecular weight data from NEW XML...")
+                peak_data = extract_peak_results(xml_content)
+                
+                if peak_data:
+                    # Display results in terminal and save summary
+                    display_and_save_results(peak_data, folder_path)
+                else:
+                    log("⚠ No molecular weight data found in NEW XML")
                     
-                    csv_filename = f"chromatogram_{dataset_name.replace(' ', '_')}_{timestamp}.csv"
-                    csv_path = os.path.join(run_results_folder, csv_filename)
-                    
-                    success = admin.save_data_set(experiment_id, dataset_name, csv_path)
-                    
-                    if success and os.path.exists(csv_path):
-                        csv_size = os.path.getsize(csv_path)
-                        log(f"  ✓ {description}: {csv_size:,} bytes")
-                        exported_csv_count += 1
-                    else:
-                        log(f"  ⚠ Failed to export '{dataset_name}'")
-                        
-                except Exception as csv_error:
-                    log(f"  ✗ Error exporting '{dataset_name}': {csv_error}")
+            except Exception as extract_error:
+                log(f"⚠ Warning: Could not extract molecular weights: {extract_error}")
+        
+        # Export NEW CSV datasets only
+        log("📊 Exporting NEW CSV datasets...")
+        exported_csv_count = 0
+        
+        for dataset_name, description in DATASET_EXPORTS:
+            log(f"  Exporting NEW dataset: '{dataset_name}'")
             
-            log(f"✓ Exported {exported_csv_count} CSV dataset files")
+            csv_filename = f"chromatogram_{dataset_name.replace(' ', '_')}_{timestamp}.csv"
+            csv_path = os.path.join(folder_path, csv_filename)
+            
+            success = admin.save_data_set(experiment_id, dataset_name, csv_path)
+            
+            if success and os.path.exists(csv_path):
+                csv_size = os.path.getsize(csv_path)
+                log(f"    ✓ NEW {description}: {csv_size:,} bytes")
+                exported_csv_count += 1
+            else:
+                log(f"    ❌ Failed to create NEW '{dataset_name}' - ABORTING")
+                return False
         
-        # Step 13: Final Summary
-        log("=== Step 13: Complete! ===")
-        log("📁 All data saved to timestamped results folder:")
-        log(f"   📂 Folder: {os.path.basename(run_results_folder)}")
+        log(f"✓ Exported {exported_csv_count} NEW CSV dataset files")
         
-        if EXPORT_XML_RESULTS:
-            log(f"   📄 XML Results: {results_filename}")
-        if EXPORT_CSV_DATASETS:
-            log(f"   📊 CSV Datasets: {exported_csv_count} files")
-        if CREATE_SUMMARY_FILE and SHOW_MOLECULAR_WEIGHTS_IN_TERMINAL:
-            log(f"   📝 Summary: molecular_weight_summary.txt")
-        if EXPORT_EXPERIMENT_FILE:
-            log(f"   💾 Experiment: {experiment_filename}")
+        # Summary
+        log("=== Processing Complete ===")
+        log(f"📁 NEW results saved to: {folder_path}")
+        log(f"📄 NEW XML Results: {results_filename}")
+        log(f"📊 NEW CSV Datasets: {exported_csv_count} files")
+        log(f"📝 NEW Summary: molecular_weight_summary.txt")
         
         return True
         
-    except Exception as main_error:
-        log(f"❌ Main automation error: {main_error}")
+    except Exception as error:
+        log(f"❌ Processing error: {error}")
         return False
     
     finally:
-        # Always clean up properly
-        log("=== Cleanup ===")
-        
+        # Clean up
         if experiment_id is not None and admin is not None:
             try:
                 admin.close_experiment(experiment_id)
@@ -485,19 +420,34 @@ def main():
             except Exception as e:
                 log(f"⚠ Warning disposing ASTRA: {e}")
 
-if __name__ == "__main__":
-    success = main()
+def main():
+    """Main entry point"""
+    if len(sys.argv) != 2:
+        print("Usage: python process_existing_experiment.py <folder_path>")
+        print("Example: python process_existing_experiment.py C:\\path\\to\\experiment\\folder")
+        return False
+    
+    folder_path = sys.argv[1]
+    
+    log("🚀 Process Existing Experiment - Data Extraction Tool")
+    log(f"📁 Target folder: {folder_path}")
+    
+    success = process_experiment(folder_path)
     
     if success:
-        print("\n" + "="*60)
-        print("🎉 ENHANCED GPC AUTOMATION COMPLETE!")
-        print("✅ Full workflow executed successfully")
-        print("💾 All data saved in timestamped results folder")
-        print("📊 Molecular weight analysis completed and displayed")
-        print("📁 Check the results folder for all exported files")
-        print("="*60)
+        print("\n" + "="*50)
+        print("🎉 EXPERIMENT PROCESSING COMPLETE!")
+        print("✅ XML and CSV data exported successfully")
+        print("📊 Molecular weight analysis completed")
+        print("📁 Check the folder for all exported files")
+        print("="*50)
     else:
-        print("\n" + "="*60)
-        print("❌ AUTOMATION FAILED")
+        print("\n" + "="*50)
+        print("❌ PROCESSING FAILED")
         print("Check the log messages above for details")
-        print("="*60)
+        print("="*50)
+    
+    return success
+
+if __name__ == "__main__":
+    main()

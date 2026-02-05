@@ -213,10 +213,10 @@ def display_peak_results(peak_data):
 
 def main():
     """Extract and display molecular weight values from latest XML file"""
-    results_dir = r"C:\Users\Administrator.WS\Desktop\wyatt-api\gpc-automation\results"
+    results_dir = r"C:\Users\Administrator.WS\Desktop\wyatt-api\gpc-automation\results\gpc_run_20260204_150326"
     
     # Find the most recent XML results file
-    xml_files = [f for f in os.listdir(results_dir) if f.startswith('results_xml_') and f.endswith('.xml')]
+    xml_files = [f for f in os.listdir(results_dir) if f.startswith('results_') and f.endswith('.xml')]
     
     if not xml_files:
         print("❌ No XML results files found!")
